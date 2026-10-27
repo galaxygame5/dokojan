@@ -1,0 +1,1516 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ドコジャン Online (Dokojong)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        room1: '#ef4444', // 赤
+                        room2: '#3b82f6', // 青
+                        room3: '#10b981', // 緑
+                        room4: '#f59e0b', // 黄
+                        room5: '#8b5cf6', // 紫
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- PeerJS for P2P Online -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap');
+        
+        body {
+            font-family: 'Zen Maru Gothic', 'Plus Jakarta Sans', sans-serif;
+            background-color: #0c0a09;
+            color: #f5f5f4;
+            user-select: none;
+            touch-action: manipulation;
+        }
+
+        .glass-panel {
+            background: rgba(28, 25, 23, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .my-turn-active {
+            border-color: #10b981 !important;
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.3) !important;
+            background: rgba(6, 78, 59, 0.3) !important;
+        }
+
+        @keyframes fadeInScale {
+            0% { opacity: 0; transform: scale(0.9); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        .animate-pop {
+            animation: fadeInScale 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-stone-950 text-stone-100 flex flex-col justify-between overflow-x-hidden">
+
+    <!-- Header / Navbar -->
+    <header class="w-full p-4 md:p-5 glass-panel sticky top-0 z-40 border-b border-stone-800 flex justify-between items-center">
+        <div class="flex items-center space-x-3 cursor-pointer" onclick="location.reload()">
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/30">
+                <span class="text-2xl font-black text-stone-950">🐶</span>
+            </div>
+            <div>
+                <h1 class="font-extrabold text-2xl tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-amber-400 via-orange-300 to-yellow-400">
+                    ドコジャン Online
+                </h1>
+                <p class="text-xs text-stone-400 font-mono tracking-widest uppercase">Dokojong Online P2P</p>
+            </div>
+        </div>
+
+        <div id="headerInfo" class="hidden flex items-center space-x-3">
+            <div id="roomBadge" class="bg-stone-900 border border-stone-700 px-4 py-2 rounded-full text-sm font-mono font-bold text-amber-400 flex items-center gap-2 cursor-pointer hover:bg-stone-800 transition" onclick="copyRoomCode()">
+                <i class="fa-regular fa-copy"></i>
+                <span id="displayRoomCode">----</span>
+            </div>
+            <button id="soundToggleBtn" onclick="toggleSound()" class="w-11 h-11 rounded-full bg-stone-800 hover:bg-stone-700 flex items-center justify-center text-stone-300 text-lg transition">
+                <i class="fa-solid fa-volume-high" id="soundIcon"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="container mx-auto px-4 py-6 max-w-2xl flex-grow flex flex-col justify-center">
+
+        <!-- VIEW 1: LOBBY -->
+        <div id="viewLobby" class="space-y-6">
+            <div class="text-center space-y-3 my-2">
+                <div class="inline-block px-4 py-1.5 bg-amber-500/10 text-amber-400 rounded-full text-sm font-bold border border-amber-500/20 mb-1">
+                    心理戦＆隠れんぼボードゲーム
+                </div>
+                <h2 class="text-3xl md:text-4xl font-black text-white">王様の犬を隠したのはドコだ！？</h2>
+                <p class="text-stone-400 text-sm md:text-base max-w-lg mx-auto">
+                    自分の部屋(1〜5)に犬を隠し、相手の犬の居場所をあばこう！
+                </p>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-6 shadow-xl space-y-3">
+                <label class="block text-sm font-bold uppercase tracking-wider text-stone-300">プレイヤー名（ニックネーム）</label>
+                <input type="text" id="playerNameInput" maxlength="8" placeholder="名前を入力してください" 
+                    class="w-full bg-stone-900/90 border border-stone-700 rounded-xl px-5 py-4 text-white focus:outline-none focus:border-amber-500 transition font-bold text-xl">
+            </div>
+
+            <div class="glass-panel rounded-2xl p-6 shadow-xl space-y-3">
+                <label class="block text-sm font-bold uppercase tracking-wider text-stone-300">合言葉（部屋のパスワード）</label>
+                <input type="text" id="joinRoomCodeInput" placeholder="お好きな合言葉を入力 (例: doko123)" 
+                    class="w-full bg-stone-900/90 border border-stone-700 rounded-xl px-5 py-4 text-white font-mono tracking-widest text-xl focus:outline-none focus:border-orange-500 transition">
+                <p class="text-xs text-stone-400">※全員が同じ合言葉を入力してください。(2〜5人対応)</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="glass-panel rounded-2xl p-6 shadow-xl hover:border-amber-500/50 transition flex flex-col justify-between space-y-4">
+                    <div>
+                        <div class="w-12 h-12 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-2xl mb-2">
+                            <i class="fa-solid fa-plus"></i>
+                        </div>
+                        <h3 class="font-bold text-xl text-white">部屋を作る (ホスト)</h3>
+                    </div>
+                    <button onclick="createRoom()" class="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-stone-950 font-black text-lg py-4 rounded-xl shadow-lg transition transform active:scale-95">
+                        部屋を作成
+                    </button>
+                </div>
+
+                <div class="glass-panel rounded-2xl p-6 shadow-xl hover:border-orange-500/50 transition flex flex-col justify-between space-y-4">
+                    <div>
+                        <div class="w-12 h-12 rounded-xl bg-orange-500/20 text-orange-400 flex items-center justify-center text-2xl mb-2">
+                            <i class="fa-solid fa-right-to-bracket"></i>
+                        </div>
+                        <h3 class="font-bold text-xl text-white">部屋に入る (ゲスト)</h3>
+                    </div>
+                    <button onclick="joinRoom()" class="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-extrabold text-lg py-4 rounded-xl shadow-lg transition transform active:scale-95">
+                        部屋に参加
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 2: WAITING LOBBY -->
+        <div id="viewRoomLobby" class="hidden space-y-5">
+            <div class="glass-panel rounded-2xl p-6 md:p-8 shadow-xl space-y-6">
+                <div class="flex justify-between items-center border-b border-stone-800 pb-4">
+                    <div>
+                        <span class="text-xs font-bold text-amber-400 tracking-wider uppercase">LOBBY ROOM</span>
+                        <h2 class="text-3xl font-black text-white flex items-center gap-2">
+                            合言葉: <span id="lobbyRoomCode" class="font-mono text-amber-400">----</span>
+                        </h2>
+                    </div>
+                    <button onclick="copyRoomCode()" class="bg-stone-800 hover:bg-stone-700 text-stone-300 text-sm font-bold px-4 py-2.5 rounded-xl border border-stone-700 flex items-center gap-2 transition">
+                        <i class="fa-regular fa-copy"></i> 合言葉をコピー
+                    </button>
+                </div>
+
+                <div class="bg-stone-900/60 rounded-xl p-4 border border-stone-800 text-center text-sm text-stone-300 space-y-1">
+                    <div>勝利条件：<strong class="text-amber-400">【得点2点獲得】</strong> または <strong class="text-amber-400">【他プレイヤー全員脱落】</strong></div>
+                    <div class="text-xs text-stone-400">※順番はゲーム開始時にランダムに決定され、親は毎ラウンド交代します</div>
+                </div>
+
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center text-sm font-bold text-stone-300">
+                        <span>参加プレイヤー (<span id="playerCount">0</span>/5名)</span>
+                        <span class="text-stone-400">※2〜5人でプレイ可能</span>
+                    </div>
+                    <div id="playerList" class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-60 overflow-y-auto pr-1"></div>
+                </div>
+
+                <div class="pt-2">
+                    <button id="startGameBtn" onclick="startDogPlacementPhase()" class="hidden w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-black text-xl py-5 rounded-xl shadow-lg transition transform active:scale-95">
+                        ゲームを開始する 🚀
+                    </button>
+                    <p id="waitingForHostMsg" class="text-center text-stone-400 text-sm py-2 font-medium animate-pulse">
+                        ホストが対戦を開始するのを待っています...
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- VIEW 3: PLACEMENT SETUP -->
+        <div id="viewPlacementSetup" class="hidden space-y-5">
+            <div class="glass-panel rounded-2xl p-6 md:p-8 shadow-xl space-y-6 text-center">
+                <div class="space-y-1">
+                    <span class="text-xs font-bold text-amber-400 tracking-wider uppercase">PLACEMENT PHASE</span>
+                    <h3 class="text-2xl font-black text-white">犬 🐶 を隠す部屋を選んでください</h3>
+                    <p class="text-xs sm:text-sm text-stone-400">1〜5の部屋のいずれか一つに自分の犬を配置します。</p>
+                </div>
+
+                <div class="grid grid-cols-5 gap-2 sm:gap-3 py-4">
+                    <button onclick="selectDogRoom(1)" id="roomBtn-1" class="room-select-btn bg-room1/20 border-2 border-room1 text-room1 rounded-2xl py-6 flex flex-col items-center gap-2 transition hover:scale-105">
+                        <span class="text-2xl sm:text-3xl font-black">1</span>
+                        <span class="text-[10px] text-stone-300 font-bold">赤ルーム</span>
+                    </button>
+                    <button onclick="selectDogRoom(2)" id="roomBtn-2" class="room-select-btn bg-room2/20 border-2 border-room2 text-room2 rounded-2xl py-6 flex flex-col items-center gap-2 transition hover:scale-105">
+                        <span class="text-2xl sm:text-3xl font-black">2</span>
+                        <span class="text-[10px] text-stone-300 font-bold">青ルーム</span>
+                    </button>
+                    <button onclick="selectDogRoom(3)" id="roomBtn-3" class="room-select-btn bg-room3/20 border-2 border-room3 text-room3 rounded-2xl py-6 flex flex-col items-center gap-2 transition hover:scale-105">
+                        <span class="text-2xl sm:text-3xl font-black">3</span>
+                        <span class="text-[10px] text-stone-300 font-bold">緑ルーム</span>
+                    </button>
+                    <button onclick="selectDogRoom(4)" id="roomBtn-4" class="room-select-btn bg-room4/20 border-2 border-room4 text-room4 rounded-2xl py-6 flex flex-col items-center gap-2 transition hover:scale-105">
+                        <span class="text-2xl sm:text-3xl font-black">4</span>
+                        <span class="text-[10px] text-stone-300 font-bold">黄ルーム</span>
+                    </button>
+                    <button onclick="selectDogRoom(5)" id="roomBtn-5" class="room-select-btn bg-room5/20 border-2 border-room5 text-room5 rounded-2xl py-6 flex flex-col items-center gap-2 transition hover:scale-105">
+                        <span class="text-2xl sm:text-3xl font-black">5</span>
+                        <span class="text-[10px] text-stone-300 font-bold">紫ルーム</span>
+                    </button>
+                </div>
+
+                <button id="submitDogBtn" disabled onclick="submitDogPlacement()" class="w-full bg-stone-800 text-stone-500 font-extrabold text-xl py-4 rounded-xl transition cursor-not-allowed">
+                    部屋を選択してください
+                </button>
+
+                <p id="placementWaitingNotice" class="hidden text-center text-sm text-amber-400 font-bold animate-pulse py-2">
+                    <i class="fa-solid fa-circle-check"></i> 犬を配置しました！他プレイヤーの準備を待っています...
+                </p>
+            </div>
+        </div>
+
+        <!-- VIEW 4: BATTLE BOARD -->
+        <div id="viewBattle" class="hidden space-y-5">
+            
+            <div class="glass-panel p-3 rounded-2xl border border-stone-800 space-y-2">
+                <div class="text-[11px] font-bold text-stone-400 uppercase tracking-wider px-1 flex justify-between">
+                    <span>プレイヤー進行順 (左から順 / 親はラウンドごとに交代)</span>
+                    <span id="roundNumberBadge" class="text-amber-400 font-mono">BATTLE</span>
+                </div>
+                <div id="turnOrderHeader" class="flex items-center gap-2 overflow-x-auto pb-1 pt-1"></div>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-5 shadow-2xl space-y-4 border border-amber-500/30 bg-stone-900/90">
+                <div class="flex justify-between items-center border-b border-stone-800 pb-2">
+                    <div>
+                        <h4 class="text-base font-extrabold text-white flex items-center gap-2">
+                            <i class="fa-solid fa-door-open text-amber-400"></i> 現在の捜索提案
+                        </h4>
+                        <p class="text-xs text-stone-400">全員OKでこの部屋が全員一斉に捜索されます。</p>
+                    </div>
+                    <span id="selectedDoorsCount" class="text-xs font-bold bg-amber-500/20 text-amber-300 px-3 py-1 rounded-full border border-amber-500/30">
+                        未提案
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-5 gap-2 sm:gap-3 py-2">
+                    <div id="doorChip-1" class="door-chip rounded-xl p-3 border-2 text-center font-black transition flex flex-col items-center justify-center bg-stone-950 border-stone-800 text-stone-600">
+                        <span class="text-2xl text-room1">1</span>
+                    </div>
+                    <div id="doorChip-2" class="door-chip rounded-xl p-3 border-2 text-center font-black transition flex flex-col items-center justify-center bg-stone-950 border-stone-800 text-stone-600">
+                        <span class="text-2xl text-room2">2</span>
+                    </div>
+                    <div id="doorChip-3" class="door-chip rounded-xl p-3 border-2 text-center font-black transition flex flex-col items-center justify-center bg-stone-950 border-stone-800 text-stone-600">
+                        <span class="text-2xl text-room3">3</span>
+                    </div>
+                    <div id="doorChip-4" class="door-chip rounded-xl p-3 border-2 text-center font-black transition flex flex-col items-center justify-center bg-stone-950 border-stone-800 text-stone-600">
+                        <span class="text-2xl text-room4">4</span>
+                    </div>
+                    <div id="doorChip-5" class="door-chip rounded-xl p-3 border-2 text-center font-black transition flex flex-col items-center justify-center bg-stone-950 border-stone-800 text-stone-600">
+                        <span class="text-2xl text-room5">5</span>
+                    </div>
+                </div>
+            </div>
+
+            <div id="initialProposalPanel" class="hidden glass-panel p-5 rounded-2xl border-2 border-amber-500 bg-amber-950/20 space-y-3 text-center">
+                <span class="text-xs font-bold text-amber-400 tracking-wider uppercase">あなたが今回の親です！</span>
+                <h4 class="text-xl font-black text-white">最初に提案する部屋番号を選んでください</h4>
+                <div class="grid grid-cols-5 gap-2 py-2">
+                    <button onclick="makeInitialProposal(1)" class="bg-room1/20 border-2 border-room1 text-room1 font-black text-2xl py-4 rounded-xl hover:bg-room1 hover:text-stone-950 transition">1</button>
+                    <button onclick="makeInitialProposal(2)" class="bg-room2/20 border-2 border-room2 text-room2 font-black text-2xl py-4 rounded-xl hover:bg-room2 hover:text-stone-950 transition">2</button>
+                    <button onclick="makeInitialProposal(3)" class="bg-room3/20 border-2 border-room3 text-room3 font-black text-2xl py-4 rounded-xl hover:bg-room3 hover:text-stone-950 transition">3</button>
+                    <button onclick="makeInitialProposal(4)" class="bg-room4/20 border-2 border-room4 text-room4 font-black text-2xl py-4 rounded-xl hover:bg-room4 hover:text-stone-950 transition">4</button>
+                    <button onclick="makeInitialProposal(5)" class="bg-room5/20 border-2 border-room5 text-room5 font-black text-2xl py-4 rounded-xl hover:bg-room5 hover:text-stone-950 transition">5</button>
+                </div>
+            </div>
+
+            <div id="actionControlsContainer" class="glass-panel p-5 rounded-2xl border border-stone-700 space-y-4">
+                <div class="flex justify-between items-center">
+                    <h4 class="font-black text-lg text-white flex items-center gap-2">
+                        <i class="fa-solid fa-gamepad text-amber-400"></i> アクション選択
+                    </h4>
+                    <span id="turnPlayerNotice" class="text-xs font-bold text-amber-400">----</span>
+                </div>
+
+                <div id="actionButtonsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button onclick="takeAction('AGREE')" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-extrabold p-4 rounded-xl shadow-md transition transform active:scale-95 flex items-center justify-between">
+                        <div>
+                            <div class="text-base">👍 同意する (OK)</div>
+                            <div class="text-xs text-emerald-200 font-normal mt-0.5">現在の提案で進めます</div>
+                        </div>
+                        <i class="fa-solid fa-check text-xl"></i>
+                    </button>
+
+                    <button onclick="openModal('addDoor')" id="btnAddDoor" class="bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-extrabold p-4 rounded-xl shadow-md transition transform active:scale-95 flex items-center justify-between">
+                        <div>
+                            <div class="text-base">🚪 ドアを追加する</div>
+                            <div class="text-xs text-sky-200 font-normal mt-0.5">部屋を1つ増やします</div>
+                        </div>
+                        <i class="fa-solid fa-plus text-xl"></i>
+                    </button>
+
+                    <button onclick="openModal('resetDoors')" id="btnResetDoors" class="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-extrabold p-4 rounded-xl shadow-md transition transform active:scale-95 flex items-center justify-between">
+                        <div>
+                            <div class="text-base">🔄 リセットして選び直す</div>
+                            <div class="text-xs text-amber-200 font-normal mt-0.5">【現在の数+1枚】を指定し直す</div>
+                        </div>
+                        <i class="fa-solid fa-rotate text-xl"></i>
+                    </button>
+
+                    <button onclick="openModal('directAttack')" class="bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-500 hover:to-pink-500 text-white font-extrabold p-4 rounded-xl shadow-md transition transform active:scale-95 flex items-center justify-between">
+                        <div>
+                            <div class="text-base">🎯 誰かを指名攻撃</div>
+                            <div class="text-xs text-rose-200 font-normal mt-0.5">任意のプレイヤーの犬の部屋を直撃</div>
+                        </div>
+                        <i class="fa-solid fa-crosshair text-xl"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="space-y-3">
+                <div class="flex justify-between items-center text-xs font-bold text-stone-400 px-1">
+                    <span>各プレイヤーの盤面 (部屋1〜5 / 得点・失点)</span>
+                </div>
+                <div id="battlePlayersContainer" class="grid grid-cols-1 gap-3"></div>
+            </div>
+
+            <div class="bg-stone-900/80 rounded-2xl p-4 border border-stone-800 space-y-2 shadow-lg">
+                <div class="flex items-center justify-between border-b border-stone-800 pb-2">
+                    <span class="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-clock-rotate-left"></i> 対戦ログ (直近5件)
+                    </span>
+                </div>
+                <div id="actionLogList" class="space-y-1.5 max-h-32 overflow-y-auto text-xs md:text-sm text-stone-300 font-medium">
+                    <div class="text-stone-500 text-center py-1">ログはまだありません</div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- VIEW 5: GAME OVER -->
+        <div id="viewGameOver" class="hidden glass-panel rounded-2xl p-8 md:p-10 shadow-2xl text-center space-y-6">
+            <div id="resultBanner" class="py-2 space-y-2"></div>
+
+            <div class="space-y-3 bg-stone-900/80 p-5 rounded-2xl border border-stone-800 text-left">
+                <h4 class="text-xs font-bold text-stone-400 uppercase tracking-wider text-center">全員の最終結果と犬の部屋</h4>
+                <div id="finalPlayersList" class="space-y-3"></div>
+            </div>
+
+            <div id="gameOverHostControls" class="hidden space-y-2 pt-2">
+                <button onclick="restartGame()" class="w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-stone-950 font-black text-xl py-5 rounded-xl shadow-lg transition transform active:scale-95">
+                    もう一度遊ぶ 🔄
+                </button>
+            </div>
+            <p id="gameOverClientMsg" class="hidden text-sm text-stone-400 animate-pulse">
+                ホストが次のゲームを準備中です...
+            </p>
+        </div>
+
+    </main>
+
+    <!-- NOTIFICATION MODAL -->
+    <div id="actionNoticeModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm pointer-events-none">
+        <div class="glass-panel max-w-sm w-full rounded-2xl p-6 border-2 border-amber-400 shadow-2xl text-center animate-pop space-y-3 bg-stone-900">
+            <div id="noticeIcon" class="text-4xl">📢</div>
+            <h3 id="noticeTitle" class="text-xl font-black text-white">通知</h3>
+            <p id="noticeBody" class="text-sm font-bold text-amber-300">内容</p>
+        </div>
+    </div>
+
+    <!-- RESULT MODAL -->
+    <div id="resultNoticeModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+        <div class="glass-panel max-w-md w-full rounded-2xl p-6 md:p-8 border-2 border-rose-500 shadow-2xl text-center animate-pop space-y-5">
+            <div id="resultModalIcon" class="text-5xl">🚨</div>
+            <h3 id="resultModalTitle" class="text-2xl font-black text-white">タイトル</h3>
+            <div id="resultModalBody" class="text-sm font-bold text-stone-300 space-y-2 bg-stone-950 p-4 rounded-xl border border-stone-800"></div>
+            <button onclick="closeResultModal()" class="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-stone-950 font-black text-lg py-4 rounded-xl shadow-lg transition">
+                次へ進む ➔
+            </button>
+        </div>
+    </div>
+
+    <!-- DOG RE-PLACEMENT MODAL -->
+    <div id="modalRePlaceDog" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md">
+        <div class="glass-panel max-w-md w-full rounded-2xl p-6 md:p-8 border-2 border-amber-400 shadow-2xl text-center space-y-5 animate-pop">
+            <div class="text-4xl">🐶</div>
+            <h3 class="text-xl font-black text-amber-400">犬の隠し場所を変更してください</h3>
+            <p class="text-xs text-stone-300">失点したため、自分の犬を隠す部屋（1〜5）を改めて選んでください。</p>
+            <div class="grid grid-cols-5 gap-2 py-2">
+                <button onclick="submitRePlacedDog(1)" class="bg-room1/20 border-2 border-room1 text-room1 font-black text-xl py-4 rounded-xl hover:bg-room1 hover:text-stone-950 transition">1</button>
+                <button onclick="submitRePlacedDog(2)" class="bg-room2/20 border-2 border-room2 text-room2 font-black text-xl py-4 rounded-xl hover:bg-room2 hover:text-stone-950 transition">2</button>
+                <button onclick="submitRePlacedDog(3)" class="bg-room3/20 border-2 border-room3 text-room3 font-black text-xl py-4 rounded-xl hover:bg-room3 hover:text-stone-950 transition">3</button>
+                <button onclick="submitRePlacedDog(4)" class="bg-room4/20 border-2 border-room4 text-room4 font-black text-xl py-4 rounded-xl hover:bg-room4 hover:text-stone-950 transition">4</button>
+                <button onclick="submitRePlacedDog(5)" class="bg-room5/20 border-2 border-room5 text-room5 font-black text-xl py-4 rounded-xl hover:bg-room5 hover:text-stone-950 transition">5</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ADD DOOR -->
+    <div id="modalAddDoor" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+        <div class="glass-panel max-w-md w-full rounded-2xl p-6 border border-stone-700 shadow-2xl space-y-5 text-center">
+            <h3 class="text-xl font-black text-white">追加するドア番号を選択</h3>
+            <div id="addDoorOptions" class="grid grid-cols-5 gap-2 py-2"></div>
+            <button onclick="closeModal('modalAddDoor')" class="w-full bg-stone-800 text-stone-300 font-bold py-3 rounded-xl">キャンセル</button>
+        </div>
+    </div>
+
+    <!-- MODAL: RESET DOORS -->
+    <div id="modalResetDoors" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+        <div class="glass-panel max-w-md w-full rounded-2xl p-6 border border-stone-700 shadow-2xl space-y-5 text-center">
+            <h3 class="text-xl font-black text-white">ドアを選び直す</h3>
+            <p class="text-xs text-stone-400">【<span id="resetCountTarget">0</span>枚】のドアを選んで指定してください。</p>
+            <div id="resetDoorOptions" class="grid grid-cols-5 gap-2 py-2"></div>
+            <button id="btnConfirmReset" disabled onclick="confirmResetDoors()" class="w-full bg-stone-800 text-stone-500 font-bold py-3 rounded-xl transition">決定</button>
+            <button onclick="closeModal('modalResetDoors')" class="w-full bg-stone-800 text-stone-300 font-bold py-3 rounded-xl">キャンセル</button>
+        </div>
+    </div>
+
+    <!-- MODAL: DIRECT ATTACK -->
+    <div id="modalDirectAttack" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+        <div class="glass-panel max-w-md w-full rounded-2xl p-6 border border-rose-500/50 shadow-2xl space-y-5 text-center">
+            <h3 class="text-xl font-black text-rose-400">🎯 誰かを指名攻撃！</h3>
+            <p class="text-xs text-stone-300">ターゲットのプレイヤーと、その犬がいる部屋を選んでください。</p>
+            
+            <div class="space-y-3 text-left">
+                <label class="block text-xs font-bold text-stone-400 uppercase">標的のプレイヤー</label>
+                <select id="attackTargetSelect" class="w-full bg-stone-900 border border-stone-700 rounded-xl px-4 py-3 text-white font-bold focus:outline-none focus:border-rose-500">
+                </select>
+
+                <label class="block text-xs font-bold text-stone-400 uppercase pt-2">犬がいると睨む部屋番号</label>
+                <div class="grid grid-cols-5 gap-2">
+                    <button onclick="executeTargetAttack(1)" class="bg-room1/20 border border-room1 text-room1 font-black text-xl py-3 rounded-xl hover:bg-room1 hover:text-stone-950 transition">1</button>
+                    <button onclick="executeTargetAttack(2)" class="bg-room2/20 border border-room2 text-room2 font-black text-xl py-3 rounded-xl hover:bg-room2 hover:text-stone-950 transition">2</button>
+                    <button onclick="executeTargetAttack(3)" class="bg-room3/20 border border-room3 text-room3 font-black text-xl py-3 rounded-xl hover:bg-room3 hover:text-stone-950 transition">3</button>
+                    <button onclick="executeTargetAttack(4)" class="bg-room4/20 border border-room4 text-room4 font-black text-xl py-3 rounded-xl hover:bg-room4 hover:text-stone-950 transition">4</button>
+                    <button onclick="executeTargetAttack(5)" class="bg-room5/20 border border-room5 text-room5 font-black text-xl py-3 rounded-xl hover:bg-room5 hover:text-stone-950 transition">5</button>
+                </div>
+            </div>
+
+            <button onclick="closeModal('modalDirectAttack')" class="w-full bg-stone-800 text-stone-300 font-bold py-3 rounded-xl mt-3">キャンセル</button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="p-4 text-center text-xs text-stone-600 border-t border-stone-900">
+        &copy; ドコジャン Online - P2P Board Game Engine
+    </footer>
+
+    <!-- GAME ENGINE & PEERJS SCRIPT -->
+    <script>
+        const PREFIX = "dokojong-game-v4-";
+
+        let peer = null, myId = "", myName = "", roomCode = "";
+        let isHost = false;
+        let connections = {}; 
+        let hostConn = null;
+
+        let roomData = {
+            hostId: "",
+            status: 'LOBBY',
+            leaderId: "",
+            turnOrder: [],
+            currentTurnIndex: 0,
+            proposedDoors: [],
+            agreedPlayers: [],
+            logs: [],
+            winnerId: null,
+            players: {}
+        };
+
+        let selectedDogRoom = null;
+        let tempSelectedDoors = [];
+        let soundEnabled = true;
+
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+
+        function playSound(type) {
+            if (!soundEnabled) return;
+            try {
+                if (!audioCtx) audioCtx = new AudioCtx();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+
+                const now = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'tap') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(450, now);
+                    gain.gain.setValueAtTime(0.08, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+                    osc.start(now);
+                    osc.stop(now + 0.05);
+                } else if (type === 'dog_found') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(280, now);
+                    osc.frequency.linearRampToValueAtTime(100, now + 0.4);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+                    osc.start(now);
+                    osc.stop(now + 0.4);
+                } else if (type === 'victory') {
+                    [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
+                        const o = audioCtx.createOscillator();
+                        const g = audioCtx.createGain();
+                        o.connect(g);
+                        g.connect(audioCtx.destination);
+                        o.frequency.setValueAtTime(freq, now + i * 0.1);
+                        g.gain.setValueAtTime(0.15, now + i * 0.1);
+                        g.gain.exponentialRampToValueAtTime(0.01, now + i * 0.1 + 0.25);
+                        o.start(now + i * 0.1);
+                        o.stop(now + i * 0.1 + 0.25);
+                    });
+                }
+            } catch (e) {
+                console.warn("Audio exception:", e);
+            }
+        }
+
+        function showView(viewId) {
+            ['viewLobby', 'viewRoomLobby', 'viewPlacementSetup', 'viewBattle', 'viewGameOver'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(viewId).classList.remove('hidden');
+
+            const headerInfo = document.getElementById('headerInfo');
+            if (viewId !== 'viewLobby') headerInfo.classList.remove('hidden');
+            else headerInfo.classList.add('hidden');
+        }
+
+        function getPlayerName() {
+            const val = document.getElementById('playerNameInput').value.trim();
+            return val || '大臣' + Math.floor(Math.random() * 900 + 100);
+        }
+
+        function addLog(message) {
+            if (!roomData.logs) roomData.logs = [];
+            roomData.logs.unshift(message);
+            if (roomData.logs.length > 15) roomData.logs.pop();
+        }
+
+        function shuffleArray(array) {
+            for (let i = array.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function showNotice(icon, title, body, duration = 2000) {
+            document.getElementById('noticeIcon').innerText = icon;
+            document.getElementById('noticeTitle').innerText = title;
+            document.getElementById('noticeBody').innerText = body;
+            const modal = document.getElementById('actionNoticeModal');
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.add('hidden'); }, duration);
+        }
+
+        function showResultModal(icon, title, htmlContent) {
+            document.getElementById('resultModalIcon').innerText = icon;
+            document.getElementById('resultModalTitle').innerText = title;
+            document.getElementById('resultModalBody').innerHTML = htmlContent;
+            document.getElementById('resultNoticeModal').classList.remove('hidden');
+        }
+
+        function closeResultModal() {
+            playSound('tap');
+            document.getElementById('resultNoticeModal').classList.add('hidden');
+        }
+
+        // CREATE / JOIN ROOM
+        function createRoom() {
+            playSound('tap');
+            myName = getPlayerName();
+            roomCode = document.getElementById('joinRoomCodeInput').value.trim().toLowerCase();
+            if (!roomCode) {
+                alert("合言葉を入力してください");
+                return;
+            }
+
+            isHost = true;
+            const peerId = `${PREFIX}${roomCode}-host`;
+            peer = new Peer(peerId);
+
+            peer.on('open', (id) => {
+                myId = id;
+                roomData.hostId = myId;
+                roomData.players = {
+                    [myId]: {
+                        id: myId,
+                        name: myName,
+                        isHost: true,
+                        dogRoom: null,
+                        revealedTiles: [],
+                        score: 0,
+                        penalty: 0,
+                        isAlive: true,
+                        isReady: false
+                    }
+                };
+                roomData.turnOrder = [myId];
+                roomData.logs = [];
+                
+                setupLobbyUI();
+                renderRoomState();
+            });
+
+            peer.on('error', (err) => {
+                if (err.type === 'unavailable-id') {
+                    alert("その合言葉はすでに使用されています。別の合言葉にしてください。");
+                } else {
+                    alert("接続エラーが発生しました: " + err.type);
+                }
+            });
+
+            peer.on('connection', (conn) => {
+                conn.on('open', () => {
+                    conn.on('data', (data) => handleHostData(conn, data));
+                });
+                conn.on('close', () => {
+                    delete connections[conn.peer];
+                    delete roomData.players[conn.peer];
+                    roomData.turnOrder = roomData.turnOrder.filter(id => id !== conn.peer);
+                    broadcastState();
+                });
+            });
+        }
+
+        function joinRoom() {
+            playSound('tap');
+            myName = getPlayerName();
+            roomCode = document.getElementById('joinRoomCodeInput').value.trim().toLowerCase();
+            if (!roomCode) {
+                alert("合言葉を入力してください");
+                return;
+            }
+
+            isHost = false;
+            const hostPeerId = `${PREFIX}${roomCode}-host`;
+            peer = new Peer();
+
+            peer.on('open', (id) => {
+                myId = id;
+                hostConn = peer.connect(hostPeerId);
+
+                hostConn.on('open', () => {
+                    hostConn.send({ type: 'JOIN', id: myId, name: myName });
+                    setupLobbyUI();
+                });
+
+                hostConn.on('data', (data) => handleClientData(data));
+            });
+
+            peer.on('error', () => {
+                alert("部屋が見つかりませんでした。合言葉を確認してください。");
+            });
+        }
+
+        function setupLobbyUI() {
+            document.getElementById('displayRoomCode').innerText = roomCode;
+            document.getElementById('lobbyRoomCode').innerText = roomCode;
+            showView('viewRoomLobby');
+        }
+
+        function broadcastState() {
+            if (!isHost) return;
+            Object.values(connections).forEach(c => c.send({ type: 'SYNC_STATE', roomData }));
+            renderRoomState();
+        }
+
+        function handleHostData(conn, data) {
+            if (data.type === 'JOIN') {
+                if (roomData.status !== 'LOBBY') {
+                    conn.send({ type: 'ERROR', message: 'ゲームはすでに進行中です' });
+                    return;
+                }
+                if (Object.keys(roomData.players).length >= 5) {
+                    conn.send({ type: 'ERROR', message: '満員です（最大5人）' });
+                    return;
+                }
+                connections[conn.peer] = conn;
+                roomData.players[data.id] = {
+                    id: data.id,
+                    name: data.name,
+                    isHost: false,
+                    dogRoom: null,
+                    revealedTiles: [],
+                    score: 0,
+                    penalty: 0,
+                    isAlive: true,
+                    isReady: false
+                };
+                if (!roomData.turnOrder.includes(data.id)) {
+                    roomData.turnOrder.push(data.id);
+                }
+                broadcastState();
+            } else if (data.type === 'SUBMIT_DOG') {
+                roomData.players[data.id].dogRoom = data.roomNum;
+                roomData.players[data.id].isReady = true;
+
+                const allReady = Object.values(roomData.players).every(p => p.isReady);
+                if (allReady) {
+                    startRoundInitialProposal();
+                }
+                broadcastState();
+            } else if (data.type === 'INITIAL_PROPOSAL') {
+                processInitialProposal(data.id, data.roomNum);
+            } else if (data.type === 'REPLACE_DOG') {
+                processReplaceDog(data.id, data.roomNum);
+            } else if (data.type === 'GAME_ACTION') {
+                processGameAction(data.id, data.actionType, data.payload);
+            } else if (data.type === 'RESTART') {
+                resetGameToLobby();
+            }
+        }
+
+        function handleClientData(data) {
+            if (data.type === 'SYNC_STATE') {
+                roomData = data.roomData;
+                renderRoomState();
+            } else if (data.type === 'ERROR') {
+                alert(data.message);
+            }
+        }
+
+        // --- RENDER LOGIC ---
+
+        function renderRoomState() {
+            if (!roomData) return;
+
+            const isHostUser = roomData.hostId === myId;
+            const myPlayer = roomData.players[myId];
+
+            if (roomData.status === 'LOBBY') {
+                showView('viewRoomLobby');
+
+                const startBtn = document.getElementById('startGameBtn');
+                const waitingMsg = document.getElementById('waitingForHostMsg');
+
+                if (isHostUser) {
+                    startBtn.classList.remove('hidden');
+                    waitingMsg.classList.add('hidden');
+                } else {
+                    startBtn.classList.add('hidden');
+                    waitingMsg.classList.remove('hidden');
+                }
+
+                const playerList = document.getElementById('playerList');
+                playerList.innerHTML = '';
+                const playersArray = Object.values(roomData.players);
+                document.getElementById('playerCount').innerText = playersArray.length;
+
+                playersArray.forEach(p => {
+                    const div = document.createElement('div');
+                    div.className = "flex items-center justify-between bg-stone-900 border border-stone-800 p-4 rounded-xl";
+                    div.innerHTML = `
+                        <div class="flex items-center space-x-3">
+                            <div class="w-10 h-10 rounded-full bg-amber-600/30 text-amber-300 font-bold flex items-center justify-center text-base border border-amber-500/30">
+                                ${escapeHtml(p.name.charAt(0))}
+                            </div>
+                            <span class="font-bold text-base text-stone-200">${escapeHtml(p.name)}</span>
+                        </div>
+                        ${p.isHost ? '<span class="text-xs font-bold bg-amber-500/20 text-amber-400 px-3 py-1 rounded-full border border-amber-500/30">ホスト</span>' : ''}
+                    `;
+                    playerList.appendChild(div);
+                });
+
+            } else if (roomData.status === 'PLACEMENT') {
+                showView('viewPlacementSetup');
+
+                const notice = document.getElementById('placementWaitingNotice');
+                const submitBtn = document.getElementById('submitDogBtn');
+
+                if (myPlayer && myPlayer.isReady) {
+                    notice.classList.remove('hidden');
+                    submitBtn.classList.add('hidden');
+                } else {
+                    notice.classList.add('hidden');
+                    submitBtn.classList.remove('hidden');
+                }
+
+            } else if (roomData.status === 'BATTLE') {
+                showView('viewBattle');
+
+                const leader = roomData.players[roomData.leaderId];
+                const currentTurnPlayerId = roomData.turnOrder[roomData.currentTurnIndex];
+                const currentTurnPlayer = roomData.players[currentTurnPlayerId];
+                const isMyTurn = currentTurnPlayerId === myId;
+                const isFirstProposalPending = roomData.proposedDoors.length === 0;
+
+                renderTurnOrderHeader();
+
+                const turnNotice = document.getElementById('turnPlayerNotice');
+                const actionBox = document.getElementById('actionControlsContainer');
+                const initialProposalPanel = document.getElementById('initialProposalPanel');
+
+                if (isFirstProposalPending) {
+                    actionBox.classList.add('hidden');
+                    if (roomData.leaderId === myId) {
+                        initialProposalPanel.classList.remove('hidden');
+                    } else {
+                        initialProposalPanel.classList.add('hidden');
+                        turnNotice.innerText = `${leader ? leader.name : ''} が最初の提案部屋を選択中…`;
+                    }
+                } else {
+                    initialProposalPanel.classList.add('hidden');
+                    actionBox.classList.remove('hidden');
+
+                    if (isMyTurn) {
+                        turnNotice.innerText = "【あなたの手番です！】";
+                        turnNotice.className = "text-sm font-black text-emerald-400 animate-pulse";
+                        actionBox.className = "glass-panel p-5 rounded-2xl border-2 my-turn-active space-y-4 transition-all duration-300";
+                    } else {
+                        turnNotice.innerText = `${currentTurnPlayer ? currentTurnPlayer.name : ''} の手番思考中…`;
+                        turnNotice.className = "text-xs font-bold text-stone-400";
+                        actionBox.className = "glass-panel p-5 rounded-2xl border border-stone-800 space-y-4 opacity-40 pointer-events-none transition-all duration-300";
+                    }
+                }
+
+                const btnReset = document.getElementById('btnResetDoors');
+                if (roomData.proposedDoors.length >= 3) {
+                    btnReset.classList.add('hidden');
+                } else {
+                    btnReset.classList.remove('hidden');
+                }
+
+                renderProposedDoors();
+                renderBattlePlayers();
+                renderActionLogs();
+
+            } else if (roomData.status === 'GAMEOVER') {
+                showView('viewGameOver');
+
+                const banner = document.getElementById('resultBanner');
+                const winnerPlayer = roomData.players[roomData.winnerId];
+                const isWinnerMe = roomData.winnerId === myId;
+
+                if (isWinnerMe) {
+                    playSound('victory');
+                    confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+                    banner.innerHTML = `
+                        <div class="w-20 h-20 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-4xl mx-auto mb-2 border border-amber-500/30">
+                            🏆
+                        </div>
+                        <h2 class="text-4xl font-black text-amber-400">あなたの完全勝利！！</h2>
+                        <p class="text-sm text-stone-400">見事に逃げ切るか他プレイヤーを倒しました！</p>
+                    `;
+                } else {
+                    banner.innerHTML = `
+                        <div class="w-20 h-20 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-4xl mx-auto mb-2 border border-amber-500/30">
+                            👑
+                        </div>
+                        <h2 class="text-4xl font-black text-amber-400">${escapeHtml(winnerPlayer ? winnerPlayer.name : '勝者')} の勝利！</h2>
+                        <p class="text-sm text-stone-400">見事な心理戦でゲームを制しました！</p>
+                    `;
+                }
+
+                const finalDiv = document.getElementById('finalPlayersList');
+                finalDiv.innerHTML = '';
+
+                Object.values(roomData.players).forEach(p => {
+                    const row = document.createElement('div');
+                    row.className = "flex justify-between items-center bg-stone-950 p-4 rounded-xl border border-stone-800";
+                    row.innerHTML = `
+                        <div class="flex items-center space-x-3">
+                            <span class="font-bold text-stone-200">${escapeHtml(p.name)}</span>
+                            <span class="text-xs bg-amber-500/20 text-amber-300 px-2.5 py-1 rounded border border-amber-500/30 font-bold">得点: ${p.score}</span>
+                            <span class="text-xs bg-rose-500/20 text-rose-300 px-2.5 py-1 rounded border border-rose-500/30 font-bold">失点: ${p.penalty}</span>
+                        </div>
+                        <div class="text-sm font-bold text-amber-400">
+                            犬の部屋: <span class="text-xl font-black">部屋${p.dogRoom}</span> 🐶
+                        </div>
+                    `;
+                    finalDiv.appendChild(row);
+                });
+
+                const hostCtrl = document.getElementById('gameOverHostControls');
+                const clientMsg = document.getElementById('gameOverClientMsg');
+
+                if (isHostUser) {
+                    hostCtrl.classList.remove('hidden');
+                    clientMsg.classList.add('hidden');
+                } else {
+                    hostCtrl.classList.add('hidden');
+                    clientMsg.classList.remove('hidden');
+                }
+            }
+        }
+
+        function renderTurnOrderHeader() {
+            const container = document.getElementById('turnOrderHeader');
+            if (!container) return;
+            container.innerHTML = '';
+
+            roomData.turnOrder.forEach((pId, idx) => {
+                const p = roomData.players[pId];
+                if (!p) return;
+
+                const isTurn = roomData.currentTurnIndex === idx;
+                const isLeader = roomData.leaderId === pId;
+
+                const pill = document.createElement('div');
+                let pillStyle = "flex items-center space-x-2 px-3 py-1.5 rounded-xl border text-xs font-bold flex-shrink-0 transition-all ";
+
+                if (!p.isAlive) {
+                    pillStyle += "bg-stone-950 border-stone-900 text-stone-600 line-through opacity-50";
+                } else if (isTurn) {
+                    pillStyle += "bg-emerald-500/20 border-emerald-400 text-emerald-300 ring-2 ring-emerald-400/40 scale-105";
+                } else if (isLeader) {
+                    pillStyle += "bg-amber-500/20 border-amber-400 text-amber-300";
+                } else {
+                    pillStyle += "bg-stone-900 border-stone-800 text-stone-300";
+                }
+
+                pill.className = pillStyle;
+                pill.innerHTML = `
+                    <span>${idx + 1}.</span>
+                    <span class="truncate max-w-[80px]">${escapeHtml(p.name)}</span>
+                    ${isLeader ? '<span>👑親</span>' : ''}
+                    ${isTurn ? '<span class="text-[10px] bg-emerald-500 text-stone-950 px-1 rounded font-black">手番</span>' : ''}
+                `;
+                container.appendChild(pill);
+            });
+        }
+
+        function renderProposedDoors() {
+            const countBadge = document.getElementById('selectedDoorsCount');
+            if (roomData.proposedDoors.length === 0) {
+                countBadge.innerText = "親が部屋を選択中";
+            } else {
+                countBadge.innerText = `${roomData.proposedDoors.length} / 5 部屋指定中`;
+            }
+
+            for (let i = 1; i <= 5; i++) {
+                const chip = document.getElementById(`doorChip-${i}`);
+                if (roomData.proposedDoors.includes(i)) {
+                    chip.className = `door-chip rounded-xl p-3 border-2 text-center font-black transition flex flex-col items-center justify-center bg-room${i}/20 border-room${i} text-room${i} shadow-lg scale-105`;
+                } else {
+                    chip.className = "door-chip rounded-xl p-3 border-2 text-center font-black transition flex flex-col items-center justify-center bg-stone-950 border-stone-800 text-stone-600";
+                }
+            }
+        }
+
+        function renderBattlePlayers() {
+            const container = document.getElementById('battlePlayersContainer');
+            if (!container) return;
+            container.innerHTML = '';
+
+            Object.values(roomData.players).forEach(p => {
+                const isMe = p.id === myId;
+                const isLeader = roomData.leaderId === p.id;
+                const isTurn = roomData.turnOrder[roomData.currentTurnIndex] === p.id;
+
+                const card = document.createElement('div');
+                card.className = `glass-panel p-4 rounded-2xl border transition space-y-3 ${
+                    !p.isAlive ? 'opacity-40 bg-stone-950 border-stone-900' :
+                    isLeader ? 'border-amber-500 ring-1 ring-amber-500/40 bg-amber-950/10' : 'border-stone-800'
+                }`;
+
+                let tilesHtml = '';
+                for (let r = 1; r <= 5; r++) {
+                    const isRevealed = p.revealedTiles.includes(r);
+                    const isDog = p.dogRoom === r;
+
+                    if (isRevealed) {
+                        if (isDog) {
+                            tilesHtml += `<div class="w-10 h-12 rounded-lg bg-rose-500/20 border-2 border-rose-500 text-rose-300 font-black flex items-center justify-center text-xl shadow-md">🐶</div>`;
+                        } else {
+                            tilesHtml += `<div class="w-10 h-12 rounded-lg bg-stone-900 border border-stone-700 text-stone-500 font-extrabold flex items-center justify-center text-sm">✕</div>`;
+                        }
+                    } else {
+                        if (isMe && isDog) {
+                            tilesHtml += `<div class="w-10 h-12 rounded-lg bg-room${r}/30 border-2 border-room${r} text-room${r} font-black flex flex-col items-center justify-center text-xs"><span>${r}</span><span class="text-[10px]">🐶</span></div>`;
+                        } else {
+                            tilesHtml += `<div class="w-10 h-12 rounded-lg bg-stone-900 border-2 border-room${r}/50 text-room${r} font-bold flex items-center justify-center text-base">${r}</div>`;
+                        }
+                    }
+                }
+
+                let scoreTokens = '';
+                for (let s = 0; s < 2; s++) scoreTokens += s < p.score ? '🟡 ' : '⚪ ';
+                let penaltyTokens = '';
+                for (let pIdx = 0; pIdx < 3; pIdx++) penaltyTokens += pIdx < p.penalty ? '❌ ' : '⬛ ';
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-center border-b border-stone-800 pb-2">
+                        <div class="flex items-center space-x-2">
+                            <span class="font-extrabold text-base text-stone-100">${escapeHtml(p.name)} ${isMe ? '<span class="text-xs text-amber-400">(自分)</span>' : ''}</span>
+                            ${isLeader ? '<span class="text-xs bg-amber-500/20 text-amber-300 px-2.5 py-0.5 rounded-full border border-amber-500/30 font-bold">親</span>' : ''}
+                            ${isTurn ? '<span class="text-xs bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-bold animate-pulse">手番</span>' : ''}
+                        </div>
+                        <div class="flex items-center gap-3 text-xs font-bold">
+                            <div>得点: ${scoreTokens}</div>
+                            <div>失点: ${penaltyTokens}</div>
+                        </div>
+                    </div>
+                    <div class="flex justify-around items-center pt-1">
+                        ${tilesHtml}
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        function renderActionLogs() {
+            const logList = document.getElementById('actionLogList');
+            if (!roomData.logs || roomData.logs.length === 0) {
+                logList.innerHTML = '<div class="text-stone-500 text-center py-1">ログはまだありません</div>';
+                return;
+            }
+
+            logList.innerHTML = '';
+            roomData.logs.slice(0, 5).forEach((logText, idx) => {
+                const div = document.createElement('div');
+                div.className = `flex items-center gap-2 ${idx === 0 ? 'text-amber-300 font-bold' : 'text-stone-400'}`;
+                div.innerHTML = `
+                    <span class="text-[10px] text-stone-600 font-mono">●</span>
+                    <span>${escapeHtml(logText)}</span>
+                `;
+                logList.appendChild(div);
+            });
+        }
+
+        function selectDogRoom(roomNum) {
+            playSound('tap');
+            selectedDogRoom = roomNum;
+            for (let i = 1; i <= 5; i++) {
+                const btn = document.getElementById(`roomBtn-${i}`);
+                if (i === roomNum) {
+                    btn.className = `room-select-btn bg-room${i}/40 border-4 border-room${i} text-room${i} rounded-2xl py-6 flex flex-col items-center gap-2 transition scale-105 shadow-lg`;
+                } else {
+                    btn.className = `room-select-btn bg-room${i}/10 border-2 border-room${i}/50 text-room${i} rounded-2xl py-6 flex flex-col items-center gap-2 transition opacity-50`;
+                }
+            }
+
+            const submitBtn = document.getElementById('submitDogBtn');
+            submitBtn.disabled = false;
+            submitBtn.className = "w-full bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-stone-950 font-black text-xl py-4 rounded-xl shadow-lg transition transform active:scale-95 cursor-pointer";
+            submitBtn.innerText = `部屋 【${roomNum}】 に犬を隠す！`;
+        }
+
+        function submitDogPlacement() {
+            playSound('tap');
+            if (!selectedDogRoom) return;
+
+            if (isHost) {
+                roomData.players[myId].dogRoom = selectedDogRoom;
+                roomData.players[myId].isReady = true;
+                const allReady = Object.values(roomData.players).every(p => p.isReady);
+                if (allReady) {
+                    startRoundInitialProposal();
+                }
+                broadcastState();
+            } else {
+                hostConn.send({ type: 'SUBMIT_DOG', id: myId, roomNum: selectedDogRoom });
+                roomData.players[myId].isReady = true;
+                renderRoomState();
+            }
+        }
+
+        function startDogPlacementPhase() {
+            playSound('tap');
+            if (!isHost) return;
+
+            const playersKeys = Object.keys(roomData.players);
+            if (playersKeys.length < 2) {
+                alert("対戦には2人以上が必要です");
+                return;
+            }
+
+            roomData.status = 'PLACEMENT';
+            roomData.logs = [];
+            roomData.winnerId = null;
+
+            roomData.turnOrder = shuffleArray([...playersKeys]);
+            roomData.currentTurnIndex = 0;
+            roomData.leaderId = roomData.turnOrder[0]; // 最初のゲーム開始時はランダムな先頭の人
+
+            Object.keys(roomData.players).forEach(id => {
+                roomData.players[id].dogRoom = null;
+                roomData.players[id].revealedTiles = [];
+                roomData.players[id].score = 0;
+                roomData.players[id].penalty = 0;
+                roomData.players[id].isAlive = true;
+                roomData.players[id].isReady = false;
+            });
+
+            addLog("ゲーム開始！手番順がランダムに決定されました！各大臣は犬を隠してください。");
+            broadcastState();
+        }
+
+        function startRoundInitialProposal() {
+            roomData.status = 'BATTLE';
+            roomData.proposedDoors = [];
+            roomData.agreedPlayers = [roomData.leaderId];
+
+            const leader = roomData.players[roomData.leaderId];
+            addLog(`ラウンド開始！ 親 [ ${leader ? leader.name : ''} ] が提案する部屋を選択します。`);
+        }
+
+        function makeInitialProposal(roomNum) {
+            playSound('tap');
+            if (isHost) {
+                processInitialProposal(myId, roomNum);
+            } else {
+                hostConn.send({ type: 'INITIAL_PROPOSAL', id: myId, roomNum });
+            }
+        }
+
+        function processInitialProposal(actorId, roomNum) {
+            const actor = roomData.players[actorId];
+            roomData.proposedDoors = [roomNum];
+            roomData.agreedPlayers = [actorId];
+
+            addLog(`👑 親 [ ${actor ? actor.name : ''} ] が【部屋 ${roomNum}】を提案しました！`);
+            showNotice("👑", "親の最初の提案", `${actor ? actor.name : ''} が 【部屋 ${roomNum}】 を提案しました！`);
+
+            nextTurn();
+            broadcastState();
+        }
+
+        function takeAction(actionType, payload = null) {
+            playSound('tap');
+            closeAllModals();
+
+            if (isHost) {
+                processGameAction(myId, actionType, payload);
+            } else {
+                hostConn.send({ type: 'GAME_ACTION', id: myId, actionType, payload });
+            }
+        }
+
+        function processGameAction(actorId, actionType, payload) {
+            const actor = roomData.players[actorId];
+
+            if (actionType === 'AGREE') {
+                if (!roomData.agreedPlayers.includes(actorId)) {
+                    roomData.agreedPlayers.push(actorId);
+                }
+                addLog(`${actor.name} が捜索案に同意 (OK) しました。`);
+                showNotice("👍", "同意 (OK)", `${actor.name} が現在の捜索案に同意しました。`);
+
+                const alivePlayers = Object.values(roomData.players).filter(p => p.isAlive);
+                const isAllAgreed = alivePlayers.every(p => roomData.agreedPlayers.includes(p.id));
+
+                if (isAllAgreed) {
+                    addLog(`全員の同意が得られました！ 捜索フェイズを実行します！`);
+                    setTimeout(() => { executeSearchPhase(); }, 1200);
+                    return;
+                } else {
+                    nextTurn();
+                }
+
+            } else if (actionType === 'ADD_DOOR') {
+                const addedDoor = payload;
+                if (!roomData.proposedDoors.includes(addedDoor)) {
+                    roomData.proposedDoors.push(addedDoor);
+                }
+                roomData.leaderId = actorId; // ドア追加者が新しい親になる
+                roomData.agreedPlayers = [actorId];
+
+                addLog(`${actor.name} が【部屋 ${addedDoor}】を追加提案！ 新しい親(リーダー)になりました。`);
+                showNotice("🚪", "ドアの追加提案", `${actor.name} が【部屋 ${addedDoor}】を追加提案！\n新しい親になりました。`);
+                nextTurn();
+
+            } else if (actionType === 'RESET_DOORS') {
+                const newDoors = payload;
+                roomData.proposedDoors = newDoors;
+                roomData.leaderId = actorId; // リセットした人が新しい親になる
+                roomData.agreedPlayers = [actorId];
+
+                addLog(`${actor.name} が部屋案をリセット！【部屋 ${newDoors.join(', ')}】を新たに提案！`);
+                showNotice("🔄", "部屋案のリセット・変更", `${actor.name} が【部屋 ${newDoors.join(', ')}】を新たに提案！\n新しい親になりました。`);
+                nextTurn();
+
+            } else if (actionType === 'TARGET_ATTACK') {
+                const targetId = payload.targetId;
+                const guessedRoom = payload.guessedRoom;
+                const target = roomData.players[targetId];
+
+                addLog(`🎯 ${actor.name} が ${target.name} の【部屋 ${guessedRoom}】を指名攻撃！`);
+
+                if (target.dogRoom === guessedRoom) {
+                    playSound('dog_found');
+                    target.penalty += 1;
+                    addLog(`💥 当たり！ ${target.name} の犬を発見！ ${target.name} は1失点！`);
+
+                    const nonDogUnrevealed = [1, 2, 3, 4, 5].filter(r => r !== actor.dogRoom && !actor.revealedTiles.includes(r));
+                    if (nonDogUnrevealed.length > 0) {
+                        actor.revealedTiles.push(nonDogUnrevealed[0]);
+                        addLog(`✨ ${actor.name} は自分の部屋 ${nonDogUnrevealed[0]} の×タイルを公開！`);
+                    }
+
+                    showResultModal(
+                        "💥", 
+                        "指名攻撃大成功！", 
+                        `<div><strong class="text-amber-400">${actor.name}</strong> の見事な直撃指定！</div>
+                         <div><strong class="text-rose-400">${target.name}</strong> の犬(部屋${guessedRoom})を発見しました！</div>
+                         <div class="text-xs text-rose-300 pt-2 font-black">【結果】 ${target.name} は 1失点！</div>`
+                    );
+
+                    checkPenaltyOrRoundReset(target.id, true);
+
+                } else {
+                    addLog(`❌ 外れ！ ${target.name} の部屋 ${guessedRoom} に犬はいませんでした。`);
+                    showNotice("❌", "指名攻撃失敗", `${actor.name} の攻撃は外れ！\n${target.name} の部屋 ${guessedRoom} に犬はいませんでした。`, 2500);
+                    nextTurn();
+                }
+            }
+
+            broadcastState();
+        }
+
+        function executeSearchPhase() {
+            const doors = roomData.proposedDoors;
+            let dogFoundPlayerId = null;
+
+            Object.values(roomData.players).forEach(p => {
+                if (!p.isAlive) return;
+
+                doors.forEach(d => {
+                    if (!p.revealedTiles.includes(d)) {
+                        p.revealedTiles.push(d);
+                    }
+                    if (p.dogRoom === d) {
+                        dogFoundPlayerId = p.id;
+                    }
+                });
+            });
+
+            if (dogFoundPlayerId) {
+                playSound('dog_found');
+                const p = roomData.players[dogFoundPlayerId];
+                p.penalty += 1;
+                addLog(`🚨 捜索失敗！ [ ${p.name} ] の犬が見つかってしまいました！ 1失点！`);
+
+                showResultModal(
+                    "🚨", 
+                    "捜索失敗！犬を発見！", 
+                    `<div>指定の部屋から <strong class="text-rose-400">${p.name}</strong> の犬 🐶 が見つかってしまいました！</div>
+                     <div class="text-xs text-rose-300 pt-2 font-black">【結果】 ${p.name} は 1失点！ (計 ${p.penalty} 失点)</div>`
+                );
+
+                checkPenaltyOrRoundReset(dogFoundPlayerId, true);
+
+            } else {
+                playSound('tap');
+                addLog(`✨ 捜索成功！ 全員が無事に通過しました！`);
+
+                let scoreGainedNames = [];
+                Object.values(roomData.players).forEach(p => {
+                    if (!p.isAlive) return;
+                    const revealedNonDog = p.revealedTiles.filter(r => r !== p.dogRoom);
+                    if (revealedNonDog.length >= 3) {
+                        p.score += 1;
+                        scoreGainedNames.push(p.name);
+                        addLog(`🎉 [ ${p.name} ] は逃げ切り成功！ 1得点を獲得！ (計 ${p.score} 点)`);
+                        p.revealedTiles = [];
+                        p.dogRoom = Math.floor(Math.random() * 5) + 1;
+                    }
+                });
+
+                if (scoreGainedNames.length > 0) {
+                    showResultModal(
+                        "🎉", 
+                        "逃げ切り成功！得点獲得！", 
+                        `<div>全員無事に部屋を通過！</div>
+                         <div><strong class="text-amber-400">${scoreGainedNames.join(', ')}</strong> は ×タイルの開示が3枚以上に達し、<strong>【1得点】</strong> を獲得しました！</div>`
+                    );
+                } else {
+                    showNotice("✨", "捜索成功", "犬は見つかりませんでした！ラウンドを交代して続行します。");
+                }
+
+                checkGameVictoryConditions();
+                if (roomData.status !== 'GAMEOVER') {
+                    rotateToNextRoundLeader();
+                }
+            }
+
+            broadcastState();
+        }
+
+        // ラウンド終了時、次の人に自然に親（リーダー）を回すロジック
+        function rotateToNextRoundLeader() {
+            let currentIndex = roomData.turnOrder.indexOf(roomData.leaderId);
+            if (currentIndex === -1) currentIndex = 0;
+
+            let nextIdx = (currentIndex + 1) % roomData.turnOrder.length;
+            while (!roomData.players[roomData.turnOrder[nextIdx]].isAlive) {
+                nextIdx = (nextIdx + 1) % roomData.turnOrder.length;
+            }
+
+            roomData.leaderId = roomData.turnOrder[nextIdx];
+            roomData.currentTurnIndex = nextIdx;
+            roomData.proposedDoors = [];
+            roomData.agreedPlayers = [roomData.leaderId];
+            addLog(`🔄 次のラウンドの親が [ ${roomData.players[roomData.leaderId].name} ] に交代しました！`);
+        }
+
+        function checkPenaltyOrRoundReset(penaltyPlayerId, reshufflePenalized) {
+            const p = roomData.players[penaltyPlayerId];
+            if (p.penalty >= 3) {
+                p.isAlive = false;
+                addLog(`💀 [ ${p.name} ] は3失点に達し脱落しました！`);
+            } else if (reshufflePenalized) {
+                p.revealedTiles = [];
+                if (penaltyPlayerId === myId) {
+                    document.getElementById('modalRePlaceDog').classList.remove('hidden');
+                } else {
+                    addLog(`⏳ ${p.name} が犬の隠し場所を選び直しています...`);
+                }
+            }
+
+            checkGameVictoryConditions();
+            if (roomData.status !== 'GAMEOVER') {
+                rotateToNextRoundLeader();
+            }
+        }
+
+        function submitRePlacedDog(roomNum) {
+            playSound('tap');
+            document.getElementById('modalRePlaceDog').classList.add('hidden');
+
+            if (isHost) {
+                processReplaceDog(myId, roomNum);
+            } else {
+                hostConn.send({ type: 'REPLACE_DOG', id: myId, roomNum });
+            }
+        }
+
+        function processReplaceDog(actorId, roomNum) {
+            const actor = roomData.players[actorId];
+            if (actor) {
+                actor.dogRoom = roomNum;
+                addLog(`🔒 ${actor.name} が犬の隠し場所を部屋 ${roomNum} に変更しました。`);
+            }
+            broadcastState();
+        }
+
+        function checkGameVictoryConditions() {
+            const players = Object.values(roomData.players);
+            const alivePlayers = players.filter(p => p.isAlive);
+
+            const scoreWinner = players.find(p => p.score >= 2);
+            if (scoreWinner) {
+                roomData.status = 'GAMEOVER';
+                roomData.winnerId = scoreWinner.id;
+                addLog(`🏆 【ゲーム終了】 ${scoreWinner.name} が2得点を獲得して完全勝利！`);
+                return;
+            }
+
+            if (alivePlayers.length === 1) {
+                roomData.status = 'GAMEOVER';
+                roomData.winnerId = alivePlayers[0].id;
+                addLog(`🏆 【ゲーム終了】 最後の生き残り ${alivePlayers[0].name} の勝利！`);
+                return;
+            }
+        }
+
+        function nextTurn() {
+            let nextIdx = (roomData.currentTurnIndex + 1) % roomData.turnOrder.length;
+            while (!roomData.players[roomData.turnOrder[nextIdx]].isAlive) {
+                nextIdx = (nextIdx + 1) % roomData.turnOrder.length;
+            }
+            roomData.currentTurnIndex = nextIdx;
+        }
+
+        // --- MODAL CONTROLS ---
+
+        function openModal(type) {
+            playSound('tap');
+            if (type === 'addDoor') {
+                const container = document.getElementById('addDoorOptions');
+                container.innerHTML = '';
+                [1, 2, 3, 4, 5].forEach(num => {
+                    if (!roomData.proposedDoors.includes(num)) {
+                        const btn = document.createElement('button');
+                        btn.className = `bg-room${num}/20 border border-room${num} text-room${num} font-black text-2xl py-4 rounded-xl hover:bg-room${num} hover:text-stone-950 transition`;
+                        btn.innerText = num;
+                        btn.onclick = () => takeAction('ADD_DOOR', num);
+                        container.appendChild(btn);
+                    }
+                });
+                document.getElementById('modalAddDoor').classList.remove('hidden');
+
+            } else if (type === 'resetDoors') {
+                const targetCount = roomData.proposedDoors.length + 1;
+                document.getElementById('resetCountTarget').innerText = targetCount;
+                tempSelectedDoors = [];
+
+                renderResetDoorOptions(targetCount);
+                document.getElementById('modalResetDoors').classList.remove('hidden');
+
+            } else if (type === 'directAttack') {
+                const select = document.getElementById('attackTargetSelect');
+                select.innerHTML = '';
+                Object.values(roomData.players).forEach(p => {
+                    if (p.id !== myId && p.isAlive) {
+                        const opt = document.createElement('option');
+                        opt.value = p.id;
+                        opt.innerText = p.name;
+                        select.appendChild(opt);
+                    }
+                });
+                document.getElementById('modalDirectAttack').classList.remove('hidden');
+            }
+        }
+
+        function executeTargetAttack(guessedRoom) {
+            playSound('tap');
+            const targetSelect = document.getElementById('attackTargetSelect');
+            const targetId = targetSelect.value;
+            if (!targetId) {
+                alert("攻撃するプレイヤーを選択してください");
+                return;
+            }
+            closeModal('modalDirectAttack');
+            takeAction('TARGET_ATTACK', { targetId, guessedRoom });
+        }
+
+        function renderResetDoorOptions(targetCount) {
+            const container = document.getElementById('resetDoorOptions');
+            container.innerHTML = '';
+
+            [1, 2, 3, 4, 5].forEach(num => {
+                const btn = document.createElement('button');
+                const isSelected = tempSelectedDoors.includes(num);
+                btn.className = isSelected ?
+                    `bg-room${num} border-2 border-white text-stone-950 font-black text-2xl py-4 rounded-xl transition` :
+                    `bg-room${num}/10 border border-room${num}/50 text-room${num} font-black text-2xl py-4 rounded-xl hover:bg-room${num}/30 transition`;
+                btn.innerText = num;
+                btn.onclick = () => {
+                    playSound('tap');
+                    if (isSelected) {
+                        tempSelectedDoors = tempSelectedDoors.filter(d => d !== num);
+                    } else {
+                        if (tempSelectedDoors.length < targetCount) {
+                            tempSelectedDoors.push(num);
+                        }
+                    }
+                    renderResetDoorOptions(targetCount);
+                };
+                container.appendChild(btn);
+            });
+
+            const confirmBtn = document.getElementById('btnConfirmReset');
+            if (tempSelectedDoors.length === targetCount) {
+                confirmBtn.disabled = false;
+                confirmBtn.className = "w-full bg-gradient-to-r from-amber-600 to-orange-600 text-stone-950 font-black py-3 rounded-xl transition cursor-pointer";
+            } else {
+                confirmBtn.disabled = true;
+                confirmBtn.className = "w-full bg-stone-800 text-stone-500 font-bold py-3 rounded-xl transition cursor-not-allowed";
+            }
+        }
+
+        function confirmResetDoors() {
+            takeAction('RESET_DOORS', tempSelectedDoors);
+        }
+
+        function closeModal(modalId) {
+            playSound('tap');
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        window.restartGame = () => {
+            playSound('tap');
+            if (!isHost) return;
+            resetGameToLobby();
+        };
+
+        function resetGameToLobby() {
+            roomData.status = 'LOBBY';
+            roomData.proposedDoors = [];
+            roomData.agreedPlayers = [];
+            roomData.logs = [];
+            roomData.winnerId = null;
+
+            Object.keys(roomData.players).forEach(id => {
+                roomData.players[id].dogRoom = null;
+                roomData.players[id].revealedTiles = [];
+                roomData.players[id].score = 0;
+                roomData.players[id].penalty = 0;
+                roomData.players[id].isAlive = true;
+                roomData.players[id].isReady = false;
+            });
+            broadcastState();
+        }
+
+        window.toggleSound = () => {
+            soundEnabled = !soundEnabled;
+            const icon = document.getElementById('soundIcon');
+            if (soundEnabled) icon.className = "fa-solid fa-volume-high";
+            else icon.className = "fa-solid fa-volume-xmark text-rose-400";
+        };
+
+        window.copyRoomCode = () => {
+            if (!roomCode) return;
+            navigator.clipboard.writeText(roomCode);
+            showNotice("📋", "コピー完了", `合言葉 [ ${roomCode} ] をコピーしました！`, 1500);
+        };
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
+    </script>
+</body>
+</html>
