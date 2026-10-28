@@ -77,14 +77,20 @@
             </div>
         </div>
 
-        <div id="headerInfo" class="hidden flex items-center space-x-3">
-            <div id="roomBadge" class="bg-stone-900 border border-stone-700 px-4 py-2 rounded-full text-sm font-mono font-bold text-amber-400 flex items-center gap-2 cursor-pointer hover:bg-stone-800 transition" onclick="copyRoomCode()">
-                <i class="fa-regular fa-copy"></i>
-                <span id="displayRoomCode">----</span>
-            </div>
-            <button id="soundToggleBtn" onclick="toggleSound()" class="w-11 h-11 rounded-full bg-stone-800 hover:bg-stone-700 flex items-center justify-center text-stone-300 text-lg transition">
-                <i class="fa-solid fa-volume-high" id="soundIcon"></i>
+        <div class="flex items-center space-x-2 sm:space-x-3">
+            <button onclick="openRuleModal()" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-book-open"></i>
+                <span>ルール説明</span>
             </button>
+            <div id="headerInfo" class="hidden flex items-center space-x-2">
+                <div id="roomBadge" class="bg-stone-900 border border-stone-700 px-3 py-2 rounded-xl text-xs sm:text-sm font-mono font-bold text-amber-400 flex items-center gap-1.5 cursor-pointer hover:bg-stone-800 transition" onclick="copyRoomCode()">
+                    <i class="fa-regular fa-copy"></i>
+                    <span id="displayRoomCode">----</span>
+                </div>
+                <button id="soundToggleBtn" onclick="toggleSound()" class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-stone-800 hover:bg-stone-700 flex items-center justify-center text-stone-300 text-base transition">
+                    <i class="fa-solid fa-volume-high" id="soundIcon"></i>
+                </button>
+            </div>
         </div>
     </header>
 
@@ -363,6 +369,59 @@
 
     </main>
 
+    <!-- RULE MODAL (ルール説明＆ゲームの流れ) -->
+    <div id="modalRuleExplanation" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+        <div class="glass-panel max-w-lg w-full rounded-2xl p-6 md:p-8 border border-amber-500/50 shadow-2xl space-y-5 max-h-[85vh] overflow-y-auto">
+            <div class="flex justify-between items-center border-b border-stone-800 pb-3">
+                <h3 class="text-xl font-black text-amber-400 flex items-center gap-2">
+                    <i class="fa-solid fa-book-open"></i> ドコジャン ルール説明
+                </h3>
+                <button onclick="closeRuleModal()" class="text-stone-400 hover:text-white text-xl font-bold">✕</button>
+            </div>
+
+            <div class="space-y-4 text-xs sm:text-sm text-stone-200 leading-relaxed">
+                <div class="bg-amber-500/10 border border-amber-500/30 p-3 rounded-xl space-y-1">
+                    <h4 class="font-bold text-amber-300">🎯 ゲームの目的</h4>
+                    <p>王様の可愛い犬を勝手に自分の部屋に隠してしまった大臣たち。自分の隠した犬が見つからないように周囲を誘導しながら、ライバルの隠し場所をあばこう！</p>
+                </div>
+
+                <div class="space-y-2">
+                    <h4 class="font-bold text-white border-l-4 border-amber-400 pl-2">🏆 勝利条件</h4>
+                    <ul class="list-disc pl-5 space-y-1 text-stone-300">
+                        <li><strong>【得点2点獲得】</strong>：自分の「✕タイル」を3枚以上公開して無事逃げ切ると1得点。2得点先取で勝利！</li>
+                        <li><strong>【生き残り勝利】</strong>：他プレイヤーが失点(ダメージ)を3回受けて全員脱落し、最後の1人になれば勝利！</li>
+                    </ul>
+                </div>
+
+                <div class="space-y-2">
+                    <h4 class="font-bold text-white border-l-4 border-amber-400 pl-2">🔄 ゲームの流れ</h4>
+                    <ol class="list-decimal pl-5 space-y-1.5 text-stone-300">
+                        <li><strong>犬の配置</strong>：全員が1〜5の部屋（<span class="text-room1 font-bold">1赤</span> / <span class="text-room2 font-bold">2青</span> / <span class="text-room3 font-bold">3緑</span> / <span class="text-room4 font-bold">4黄</span> / <span class="text-room5 font-bold">5紫</span>）のどこか1つに自分の犬を伏せて隠します。</li>
+                        <li><strong>親の提案</strong>：親（毎ラウンド交代）が「〇番の部屋を探そう！」と1つ提案します。</li>
+                        <li><strong>手番アクション</strong>：時計回りに以下の4つのアクションから1つを選びます。
+                            <ul class="list-disc pl-4 mt-1 space-y-1 text-stone-400 text-xs">
+                                ><li><strong class="text-emerald-400">同意 (OK)</strong>：現在の案で進める。全員OKで捜索へ！</li>
+                                <li><strong class="text-sky-400">ドアの追加</strong>：部屋を1つ追加し、自分が新しい親になる。</li>
+                                <li><strong class="text-amber-400">リセット指定</strong>：提案をリセットし【現在の枚数+1枚】を選び直し親になる（提案3枚未満時のみ）。</li>
+                                <li><strong class="text-rose-400">指名攻撃</strong>：特定のプレイヤー1人と部屋を指定して直撃攻撃！</li>
+                            </ul>
+                        </li>
+                        <li><strong>捜索/判定</strong>：全員OKで一斉に指定部屋を公開。犬が出た人は1失点！犬が出なかった人は×タイルが3枚以上開けば1得点！</li>
+                    </ol>
+                </div>
+
+                <div class="bg-stone-900 border border-stone-800 p-3 rounded-xl space-y-1">
+                    <h4 class="font-bold text-rose-400">⚠️ 失点した場合のルール</h4>
+                    <p class="text-stone-300 text-xs">失点したプレイヤーは、自分の犬の隠し部屋を改めて自分で選び直します（タイルの開示状態はリセットされます）。</p>
+                </div>
+            </div>
+
+            <button onclick="closeRuleModal()" class="w-full bg-amber-500 text-stone-950 font-black py-3 rounded-xl text-base shadow-lg transition">
+                理解した！閉じる
+            </button>
+        </div>
+    </div>
+
     <!-- NOTIFICATION MODAL -->
     <div id="actionNoticeModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm pointer-events-none">
         <div class="glass-panel max-w-sm w-full rounded-2xl p-6 border-2 border-amber-400 shadow-2xl text-center animate-pop space-y-3 bg-stone-900">
@@ -452,7 +511,7 @@
 
     <!-- GAME ENGINE & PEERJS SCRIPT -->
     <script>
-        const PREFIX = "dokojong-game-v4-";
+        const PREFIX = "dokojong-game-v5-";
 
         let peer = null, myId = "", myName = "", roomCode = "";
         let isHost = false;
@@ -552,6 +611,16 @@
                 [array[i], array[j]] = [array[j], array[i]];
             }
             return array;
+        }
+
+        function openRuleModal() {
+            playSound('tap');
+            document.getElementById('modalRuleExplanation').classList.remove('hidden');
+        }
+
+        function closeRuleModal() {
+            playSound('tap');
+            document.getElementById('modalRuleExplanation').classList.add('hidden');
         }
 
         function showNotice(icon, title, body, duration = 2000) {
@@ -1082,7 +1151,7 @@
 
             roomData.turnOrder = shuffleArray([...playersKeys]);
             roomData.currentTurnIndex = 0;
-            roomData.leaderId = roomData.turnOrder[0]; // 最初のゲーム開始時はランダムな先頭の人
+            roomData.leaderId = roomData.turnOrder[0];
 
             Object.keys(roomData.players).forEach(id => {
                 roomData.players[id].dogRoom = null;
@@ -1164,7 +1233,7 @@
                 if (!roomData.proposedDoors.includes(addedDoor)) {
                     roomData.proposedDoors.push(addedDoor);
                 }
-                roomData.leaderId = actorId; // ドア追加者が新しい親になる
+                roomData.leaderId = actorId;
                 roomData.agreedPlayers = [actorId];
 
                 addLog(`${actor.name} が【部屋 ${addedDoor}】を追加提案！ 新しい親(リーダー)になりました。`);
@@ -1174,7 +1243,7 @@
             } else if (actionType === 'RESET_DOORS') {
                 const newDoors = payload;
                 roomData.proposedDoors = newDoors;
-                roomData.leaderId = actorId; // リセットした人が新しい親になる
+                roomData.leaderId = actorId;
                 roomData.agreedPlayers = [actorId];
 
                 addLog(`${actor.name} が部屋案をリセット！【部屋 ${newDoors.join(', ')}】を新たに提案！`);
@@ -1288,7 +1357,6 @@
             broadcastState();
         }
 
-        // ラウンド終了時、次の人に自然に親（リーダー）を回すロジック
         function rotateToNextRoundLeader() {
             let currentIndex = roomData.turnOrder.indexOf(roomData.leaderId);
             if (currentIndex === -1) currentIndex = 0;
