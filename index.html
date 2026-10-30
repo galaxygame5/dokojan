@@ -402,7 +402,7 @@
                             <ul class="list-disc pl-4 mt-1 space-y-1 text-stone-400 text-xs">
                                 <li><strong class="text-emerald-400">同意 (OK)</strong>：現在の案で進める。全員OKで捜索へ！</li>
                                 <li><strong class="text-sky-400">ドアの追加</strong>：部屋を1つ追加し、自分が新しい親になる。</li>
-                                <li><strong class="text-amber-400">リセット指定</strong>：提案をリセットし【現在の枚数+1枚】を選び直し親になる（提案3枚未満時のみ）。</li>
+                                <li><strong class="text-amber-400">リセット指定</strong>：提案をリセットし【現在の枚数+1枚】を選び直し親になる（提案3枚未満かつ残り部屋数がある場合のみ）。</li>
                                 <li><strong class="text-rose-400">指名攻撃</strong>：特定のプレイヤー1人と部屋を指定して直撃攻撃！</li>
                             </ul>
                         </li>
@@ -471,8 +471,8 @@
     <!-- MODAL: RESET DOORS -->
     <div id="modalResetDoors" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
         <div class="glass-panel max-w-md w-full rounded-2xl p-6 border border-stone-700 shadow-2xl space-y-5 text-center">
-            <h3 class="text-xl font-black text-white">ドアを選び直す</h3>
-            <p class="text-xs text-stone-400">【<span id="resetCountTarget">0</span>枚】のドアを選んで指定してください。</p>
+            <h3 class="text-xl font-black text-white">ドアを選び直す (違うドアを開ける)</h3>
+            <p class="text-xs text-stone-400">現在とは違う組み合わせで、計【<span id="resetCountTarget">0</span>枚】のドアを選んで指定してください。</p>
             <div id="resetDoorOptions" class="grid grid-cols-5 gap-2 py-2"></div>
             <button id="btnConfirmReset" disabled onclick="confirmResetDoors()" class="w-full bg-stone-800 text-stone-500 font-bold py-3 rounded-xl transition">決定</button>
             <button onclick="closeModal('modalResetDoors')" class="w-full bg-stone-800 text-stone-300 font-bold py-3 rounded-xl">キャンセル</button>
@@ -511,7 +511,7 @@
 
     <!-- GAME ENGINE & PEERJS SCRIPT -->
     <script>
-        const PREFIX = "dokojong-game-v6-";
+        const PREFIX = "dokojong-online-app-v7-";
 
         let peer = null, myId = "", myName = "", roomCode = "";
         let isHost = false;
@@ -747,7 +747,11 @@
 
         function broadcastState() {
             if (!isHost) return;
-            Object.values(connections).forEach(c => c.send({ type: 'SYNC_STATE', roomData }));
+            Object.values(connections).forEach(c => {
+                if (c && c.open) {
+                    c.send({ type: 'SYNC_STATE', roomData });
+                }
+            });
             renderRoomState();
         }
 
@@ -900,8 +904,11 @@
                     }
                 }
 
+                // リセットボタンの活性・非活性／表示・非表示の制御
+                // ルール上、現在開いている枚数が4枚以上（残り部屋数が targetCount に満たない等）の場合はリセット（違うドアを開ける）が不可能になるため隠すか無効化する
                 const btnReset = document.getElementById('btnResetDoors');
-                if (roomData.proposedDoors.length >= 3) {
+                const targetCount = roomData.proposedDoors.length + 1;
+                if (roomData.proposedDoors.length >= 3 || targetCount > 5) {
                     btnReset.classList.add('hidden');
                 } else {
                     btnReset.classList.remove('hidden');
@@ -965,7 +972,7 @@
                     clientMsg.classList.add('hidden');
                 } else {
                     hostCtrl.classList.add('hidden');
-                    clientMsg.classList.remove('hidden');
+                    clientMsg.classList.add('hidden'); // 修正: 適切に非表示
                 }
             }
         }
@@ -1468,6 +1475,13 @@
 
             } else if (type === 'resetDoors') {
                 const targetCount = roomData.proposedDoors.length + 1;
+                
+                // 【ガード】残り部屋数が targetCount（現在の数+1枚）に満たない場合はリセット不可
+                if (targetCount > 5) {
+                    alert("これ以上ドアの枚数を増やすことはできません！");
+                    return;
+                }
+
                 document.getElementById('resetCountTarget').innerText = targetCount;
                 tempSelectedDoors = [];
 
@@ -1505,9 +1519,17 @@
             const container = document.getElementById('resetDoorOptions');
             container.innerHTML = '';
 
+            // 1〜5の部屋ボタンを描画
             [1, 2, 3, 4, 5].forEach(num => {
                 const btn = document.createElement('button');
                 const isSelected = tempSelectedDoors.includes(num);
+
+                // もし「前回選んでいた提案に含まれていた部屋」をそのまま全部選ぼうとすることを防ぐため、
+                // リセット時は「完全に同じ組み合わせ」にならない、あるいはユーザーが自由にゼロから targetCount 枚を選ぶ仕様にします。
+                // ユーザー様のご指摘「今選んでるドア以外のドアを開けるはず」「3枚以外を選ぼうとしたら残り2枚しかないから選べないように」
+                // → targetCount 枚を新しく選ぶ仕様。ただし、もし既に選ばれているドアと同じ組み合わせの完全一致は禁止、あるいは単純に指定枚数を選ぶ形。
+                // ここでは「targetCount 枚を新しく選ぶ」仕様として、重複を防ぎ、かつ枚数制限を厳格にかけます。
+
                 btn.className = isSelected ?
                     `bg-room${num} border-2 border-white text-stone-950 font-black text-2xl py-4 rounded-xl transition` :
                     `bg-room${num}/10 border border-room${num}/50 text-room${num} font-black text-2xl py-4 rounded-xl hover:bg-room${num}/30 transition`;
@@ -1527,7 +1549,12 @@
             });
 
             const confirmBtn = document.getElementById('btnConfirmReset');
-            if (tempSelectedDoors.length === targetCount) {
+            
+            // 【バリデーション】前回と同じドアの組み合わせになっていないか、かつ指定枚数に達しているか
+            const isSameAsBefore = (tempSelectedDoors.length === roomData.proposedDoors.length) &&
+                tempSelectedDoors.every(d => roomData.proposedDoors.includes(d));
+
+            if (tempSelectedDoors.length === targetCount && !isSameAsBefore) {
                 confirmBtn.disabled = false;
                 confirmBtn.className = "w-full bg-gradient-to-r from-amber-600 to-orange-600 text-stone-950 font-black py-3 rounded-xl transition cursor-pointer";
             } else {
