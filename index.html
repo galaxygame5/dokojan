@@ -305,15 +305,15 @@
                     <button onclick="openModal('addDoor')" id="btnAddDoor" class="bg-gradient-to-r from-sky-600 to-blue-600 hover:from-sky-500 hover:to-blue-500 text-white font-extrabold p-4 rounded-xl shadow-md transition transform active:scale-95 flex items-center justify-between">
                         <div>
                             <div class="text-base">🚪 ドアを追加する</div>
-                            <div class="text-xs text-sky-200 font-normal mt-0.5">部屋を1つ増やします</div>
+                            <div class="text-xs text-sky-200 font-normal mt-0.5">部屋を1つ増やして自分が親になる</div>
                         </div>
                         <i class="fa-solid fa-plus text-xl"></i>
                     </button>
 
                     <button onclick="openModal('resetDoors')" id="btnResetDoors" class="bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-extrabold p-4 rounded-xl shadow-md transition transform active:scale-95 flex items-center justify-between">
                         <div>
-                            <div class="text-base">🔄 リセットして選び直す</div>
-                            <div class="text-xs text-amber-200 font-normal mt-0.5">【現在の数+1枚】を指定し直す</div>
+                            <div class="text-base">🔄 違うドアを開ける</div>
+                            <div class="text-xs text-amber-200 font-normal mt-0.5">【現在の数+1枚】を指定し直し親になる</div>
                         </div>
                         <i class="fa-solid fa-rotate text-xl"></i>
                     </button>
@@ -369,7 +369,7 @@
 
     </main>
 
-    <!-- RULE MODAL (ルール説明＆ゲームの流れ) -->
+    <!-- RULE MODAL -->
     <div id="modalRuleExplanation" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
         <div class="glass-panel max-w-lg w-full rounded-2xl p-6 md:p-8 border border-amber-500/50 shadow-2xl space-y-5 max-h-[85vh] overflow-y-auto">
             <div class="flex justify-between items-center border-b border-stone-800 pb-3">
@@ -382,37 +382,31 @@
             <div class="space-y-4 text-xs sm:text-sm text-stone-200 leading-relaxed">
                 <div class="bg-amber-500/10 border border-amber-500/30 p-3 rounded-xl space-y-1">
                     <h4 class="font-bold text-amber-300">🎯 ゲームの目的</h4>
-                    <p>王様の可愛い犬を勝手に自分の部屋に隠してしまった大臣たち。自分の隠した犬が見つからないように周囲を誘導しながら、ライバルの隠し場所をあばこう！</p>
+                    <p>自分の部屋に犬を隠し、相手の犬の居場所をあばこう！</p>
                 </div>
 
                 <div class="space-y-2">
                     <h4 class="font-bold text-white border-l-4 border-amber-400 pl-2">🏆 勝利条件</h4>
                     <ul class="list-disc pl-5 space-y-1 text-stone-300">
-                        <li><strong>【得点2点獲得】</strong>：自分の「✕タイル」を3枚以上公開して無事逃げ切ると1得点。2得点先取で勝利！</li>
-                        <li><strong>【生き残り勝利】</strong>：他プレイヤーが失点(ダメージ)を3回受けて全員脱落し、最後の1人になれば勝利！</li>
+                        <li><strong>【得点2点獲得】</strong>：自分の✕タイルを3枚以上公開して逃げ切ると1得点。2得点で勝利！</li>
+                        <li><strong>【生き残り勝利】</strong>：他プレイヤーが3失点で全員脱落し、最後の1人になれば勝利！</li>
                     </ul>
                 </div>
 
                 <div class="space-y-2">
-                    <h4 class="font-bold text-white border-l-4 border-amber-400 pl-2">🔄 ゲームの流れ</h4>
+                    <h4 class="font-bold text-white border-l-4 border-amber-400 pl-2">🔄 ゲームの流れとアクション</h4>
                     <ol class="list-decimal pl-5 space-y-1.5 text-stone-300">
-                        <li><strong>犬の配置</strong>：全員が1〜5の部屋（<span class="text-room1 font-bold">1赤</span> / <span class="text-room2 font-bold">2青</span> / <span class="text-room3 font-bold">3緑</span> / <span class="text-room4 font-bold">4黄</span> / <span class="text-room5 font-bold">5紫</span>）のどこか1つに自分の犬を伏せて隠します。</li>
-                        <li><strong>親の提案</strong>：親（毎ラウンド交代）が「〇番の部屋を探そう！」と1つ提案します。</li>
-                        <li><strong>手番アクション</strong>：時計回りに以下の4つのアクションから1つを選びます。
+                        <li><strong>親の最初の提案</strong>：親（ラウンドごとに交代、またはドア追加・違うドアを開けた人が新しい親）が部屋を1つ指定します。</li>
+                        <li><strong>手番アクション</strong>：
                             <ul class="list-disc pl-4 mt-1 space-y-1 text-stone-400 text-xs">
-                                <li><strong class="text-emerald-400">同意 (OK)</strong>：現在の案で進める。全員OKで捜索へ！</li>
-                                <li><strong class="text-sky-400">ドアの追加</strong>：部屋を1つ追加し、自分が新しい親になる。</li>
-                                <li><strong class="text-amber-400">リセット指定</strong>：提案をリセットし【現在の枚数+1枚】を選び直し親になる（提案3枚未満かつ残り部屋数がある場合のみ）。</li>
-                                <li><strong class="text-rose-400">指名攻撃</strong>：特定のプレイヤー1人と部屋を指定して直撃攻撃！</li>
+                               <li><strong class="text-emerald-400">同意 (OK)</strong>：現在の案で進める。全員OKで一斉に部屋を開けて捜索！</li>
+                               <li><strong class="text-sky-400">ドアの追加</strong>：部屋を1つ追加し、自分が新しい親になる。</li>
+                               <li><strong class="text-amber-400">違うドアを開ける</strong>：提案をリセットし【現在の枚数+1枚】を新たに選び直し、自分が新しい親になる。</li>
+                               <li><strong class="text-rose-400">指名攻撃</strong>：特定プレイヤーの犬の部屋を直撃！</li>
                             </ul>
                         </li>
-                        <li><strong>捜索/判定</strong>：全員OKで一斉に指定部屋を公開。犬が出た人は1失点！犬が出なかった人は×タイルが3枚以上開けば1得点！</li>
+                        <li><strong>犬がバレた場合</strong>：指名攻撃だけでなく、**同意による捜索で自分の犬の部屋を開けられた場合も**、1失点となり**自分の犬の隠し場所を改めて選び直します**。</li>
                     </ol>
-                </div>
-
-                <div class="bg-stone-900 border border-stone-800 p-3 rounded-xl space-y-1">
-                    <h4 class="font-bold text-rose-400">⚠️ 失点した場合のルール</h4>
-                    <p class="text-stone-300 text-xs">失点したプレイヤーは、自分の犬の隠し部屋を改めて自分で選び直します（タイルの開示状態はリセットされます）。</p>
                 </div>
             </div>
 
@@ -471,8 +465,8 @@
     <!-- MODAL: RESET DOORS -->
     <div id="modalResetDoors" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
         <div class="glass-panel max-w-md w-full rounded-2xl p-6 border border-stone-700 shadow-2xl space-y-5 text-center">
-            <h3 class="text-xl font-black text-white">ドアを選び直す (違うドアを開ける)</h3>
-            <p class="text-xs text-stone-400">現在とは違う組み合わせで、計【<span id="resetCountTarget">0</span>枚】のドアを選んで指定してください。</p>
+            <h3 class="text-xl font-black text-white">違うドアを開ける (選び直し)</h3>
+            <p class="text-xs text-stone-400">違う組み合わせで、計【<span id="resetCountTarget">0</span>枚】のドアを選んで指定してください。</p>
             <div id="resetDoorOptions" class="grid grid-cols-5 gap-2 py-2"></div>
             <button id="btnConfirmReset" disabled onclick="confirmResetDoors()" class="w-full bg-stone-800 text-stone-500 font-bold py-3 rounded-xl transition">決定</button>
             <button onclick="closeModal('modalResetDoors')" class="w-full bg-stone-800 text-stone-300 font-bold py-3 rounded-xl">キャンセル</button>
@@ -511,7 +505,7 @@
 
     <!-- GAME ENGINE & PEERJS SCRIPT -->
     <script>
-        const PREFIX = "dokojong-online-app-v7-";
+        const PREFIX = "dokojong-online-app-v8-";
 
         let peer = null, myId = "", myName = "", roomCode = "";
         let isHost = false;
@@ -904,8 +898,6 @@
                     }
                 }
 
-                // リセットボタンの活性・非活性／表示・非表示の制御
-                // ルール上、現在開いている枚数が4枚以上（残り部屋数が targetCount に満たない等）の場合はリセット（違うドアを開ける）が不可能になるため隠すか無効化する
                 const btnReset = document.getElementById('btnResetDoors');
                 const targetCount = roomData.proposedDoors.length + 1;
                 if (roomData.proposedDoors.length >= 3 || targetCount > 5) {
@@ -972,7 +964,7 @@
                     clientMsg.classList.add('hidden');
                 } else {
                     hostCtrl.classList.add('hidden');
-                    clientMsg.classList.add('hidden'); // 修正: 適切に非表示
+                    clientMsg.classList.remove('hidden');
                 }
             }
         }
@@ -1247,21 +1239,21 @@
                 if (!roomData.proposedDoors.includes(addedDoor)) {
                     roomData.proposedDoors.push(addedDoor);
                 }
-                roomData.leaderId = actorId;
+                roomData.leaderId = actorId; // 追加した人が新しい親
                 roomData.agreedPlayers = [actorId];
 
-                addLog(`${actor.name} が【部屋 ${addedDoor}】を追加提案！ 新しい親(リーダー)になりました。`);
+                addLog(`${actor.name} が【部屋 ${addedDoor}】を追加提案！ 新しい親になりました。`);
                 showNotice("🚪", "ドアの追加提案", `${actor.name} が【部屋 ${addedDoor}】を追加提案！\n新しい親になりました。`);
                 nextTurn();
 
             } else if (actionType === 'RESET_DOORS') {
                 const newDoors = payload;
                 roomData.proposedDoors = newDoors;
-                roomData.leaderId = actorId;
+                roomData.leaderId = actorId; // 違うドアを開けた人が新しい親
                 roomData.agreedPlayers = [actorId];
 
-                addLog(`${actor.name} が部屋案をリセット！【部屋 ${newDoors.join(', ')}】を新たに提案！`);
-                showNotice("🔄", "部屋案のリセット・変更", `${actor.name} が【部屋 ${newDoors.join(', ')}】を新たに提案！\n新しい親になりました。`);
+                addLog(`${actor.name} が違うドアを開け直しました！【部屋 ${newDoors.join(', ')}】を新たに提案！`);
+                showNotice("🔄", "違うドアを開ける", `${actor.name} が【部屋 ${newDoors.join(', ')}】を新たに提案！\n新しい親になりました。`);
                 nextTurn();
 
             } else if (actionType === 'TARGET_ATTACK') {
@@ -1304,8 +1296,9 @@
 
         function executeSearchPhase() {
             const doors = roomData.proposedDoors;
-            let dogFoundPlayerId = null;
+            let dogFoundPlayerIds = [];
 
+            // 全員の盤面をチェックし、提案されたドアの中に自分の犬が含まれていた人を全員特定する
             Object.values(roomData.players).forEach(p => {
                 if (!p.isAlive) return;
 
@@ -1313,26 +1306,32 @@
                     if (!p.revealedTiles.includes(d)) {
                         p.revealedTiles.push(d);
                     }
-                    if (p.dogRoom === d) {
-                        dogFoundPlayerId = p.id;
+                    if (p.dogRoom === d && !dogFoundPlayerIds.includes(p.id)) {
+                        dogFoundPlayerIds.push(p.id);
                     }
                 });
             });
 
-            if (dogFoundPlayerId) {
+            if (dogFoundPlayerIds.length > 0) {
                 playSound('dog_found');
-                const p = roomData.players[dogFoundPlayerId];
-                p.penalty += 1;
-                addLog(`🚨 捜索失敗！ [ ${p.name} ] の犬が見つかってしまいました！ 1失点！`);
+                let hitNames = [];
+
+                dogFoundPlayerIds.forEach(pId => {
+                    const p = roomData.players[pId];
+                    p.penalty += 1;
+                    hitNames.push(p.name);
+                    addLog(`🚨 捜索失敗！ [ ${p.name} ] の犬（部屋${p.dogRoom}）が見つかりました！ 1失点！`);
+                });
 
                 showResultModal(
                     "🚨", 
                     "捜索失敗！犬を発見！", 
-                    `<div>指定の部屋から <strong class="text-rose-400">${p.name}</strong> の犬 🐶 が見つかってしまいました！</div>
-                     <div class="text-xs text-rose-300 pt-2 font-black">【結果】 ${p.name} は 1失点！ (計 ${p.penalty} 失点)</div>`
+                    `<div>指定の部屋から <strong class="text-rose-400">${hitNames.join(', ')}</strong> の犬 🐶 が見つかってしまいました！</div>
+                     <div class="text-xs text-rose-300 pt-2 font-black">【結果】 該当者は 1失点となり、犬の隠し場所を選び直します！</div>`
                 );
 
-                checkPenaltyOrRoundReset(dogFoundPlayerId, true);
+                // 発失点したプレイヤー全員についてペナルティ処理（犬の置き直し）を実行
+                checkMultiplePenaltiesOrRoundReset(dogFoundPlayerIds);
 
             } else {
                 playSound('tap');
@@ -1399,6 +1398,33 @@
                 } else {
                     addLog(`⏳ ${p.name} が犬の隠し場所を選び直しています...`);
                 }
+            }
+
+            checkGameVictoryConditions();
+            if (roomData.status !== 'GAMEOVER') {
+                rotateToNextRoundLeader();
+            }
+        }
+
+        // 複数人が同時に失点した場合の処理（同意捜索用）
+        function checkMultiplePenaltiesOrRoundReset(penaltyPlayerIds) {
+            let needsRePlaceMe = false;
+
+            penaltyPlayerIds.forEach(pId => {
+                const p = roomData.players[pId];
+                if (p.penalty >= 3) {
+                    p.isAlive = false;
+                    addLog(`💀 [ ${p.name} ] は3失点に達し脱落しました！`);
+                } else {
+                    p.revealedTiles = [];
+                    if (pId === myId) {
+                        needsRePlaceMe = true;
+                    }
+                }
+            });
+
+            if (needsRePlaceMe) {
+                document.getElementById('modalRePlaceDog').classList.remove('hidden');
             }
 
             checkGameVictoryConditions();
@@ -1476,7 +1502,6 @@
             } else if (type === 'resetDoors') {
                 const targetCount = roomData.proposedDoors.length + 1;
                 
-                // 【ガード】残り部屋数が targetCount（現在の数+1枚）に満たない場合はリセット不可
                 if (targetCount > 5) {
                     alert("これ以上ドアの枚数を増やすことはできません！");
                     return;
@@ -1519,16 +1544,9 @@
             const container = document.getElementById('resetDoorOptions');
             container.innerHTML = '';
 
-            // 1〜5の部屋ボタンを描画
             [1, 2, 3, 4, 5].forEach(num => {
                 const btn = document.createElement('button');
                 const isSelected = tempSelectedDoors.includes(num);
-
-                // もし「前回選んでいた提案に含まれていた部屋」をそのまま全部選ぼうとすることを防ぐため、
-                // リセット時は「完全に同じ組み合わせ」にならない、あるいはユーザーが自由にゼロから targetCount 枚を選ぶ仕様にします。
-                // ユーザー様のご指摘「今選んでるドア以外のドアを開けるはず」「3枚以外を選ぼうとしたら残り2枚しかないから選べないように」
-                // → targetCount 枚を新しく選ぶ仕様。ただし、もし既に選ばれているドアと同じ組み合わせの完全一致は禁止、あるいは単純に指定枚数を選ぶ形。
-                // ここでは「targetCount 枚を新しく選ぶ」仕様として、重複を防ぎ、かつ枚数制限を厳格にかけます。
 
                 btn.className = isSelected ?
                     `bg-room${num} border-2 border-white text-stone-950 font-black text-2xl py-4 rounded-xl transition` :
@@ -1550,7 +1568,6 @@
 
             const confirmBtn = document.getElementById('btnConfirmReset');
             
-            // 【バリデーション】前回と同じドアの組み合わせになっていないか、かつ指定枚数に達しているか
             const isSameAsBefore = (tempSelectedDoors.length === roomData.proposedDoors.length) &&
                 tempSelectedDoors.every(d => roomData.proposedDoors.includes(d));
 
