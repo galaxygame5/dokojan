@@ -388,25 +388,17 @@
                 <div class="space-y-2">
                     <h4 class="font-bold text-white border-l-4 border-amber-400 pl-2">🏆 勝利条件</h4>
                     <ul class="list-disc pl-5 space-y-1 text-stone-300">
-                        <li><strong>【得点2点獲得】</strong>：自分の✕タイルを3枚以上公開して逃げ切ると1得点。2得点で勝利！</li>
+                        <li><strong>【得点2点獲得】</strong>：自分の✕タイルを3枚以上公開して逃げ切る、または**指名攻撃を成功させる**ことで得点を獲得。2点で勝利！</li>
                         <li><strong>【生き残り勝利】</strong>：他プレイヤーが3失点で全員脱落し、最後の1人になれば勝利！</li>
                     </ul>
                 </div>
 
                 <div class="space-y-2">
-                    <h4 class="font-bold text-white border-l-4 border-amber-400 pl-2">🔄 ゲームの流れとアクション</h4>
-                    <ol class="list-decimal pl-5 space-y-1.5 text-stone-300">
-                        <li><strong>親の最初の提案</strong>：親（ラウンドごとに交代、またはドア追加・違うドアを開けた人が新しい親）が部屋を1つ指定します。</li>
-                        <li><strong>手番アクション</strong>：
-                            <ul class="list-disc pl-4 mt-1 space-y-1 text-stone-400 text-xs">
-                               <li><strong class="text-emerald-400">同意 (OK)</strong>：現在の案で進める。全員OKで一斉に部屋を開けて捜索！</li>
-                               <li><strong class="text-sky-400">ドアの追加</strong>：部屋を1つ追加し、自分が新しい親になる。</li>
-                               <li><strong class="text-amber-400">違うドアを開ける</strong>：提案をリセットし【現在の枚数+1枚】を新たに選び直し、自分が新しい親になる。</li>
-                               <li><strong class="text-rose-400">指名攻撃</strong>：特定プレイヤーの犬の部屋を直撃！</li>
-                            </ul>
-                        </li>
-                        <li><strong>犬がバレた場合</strong>：指名攻撃だけでなく、**同意による捜索で自分の犬の部屋を開けられた場合も**、1失点となり**自分の犬の隠し場所を改めて選び直します**。</li>
-                    </ol>
+                    <h4 class="font-bold text-white border-l-4 border-amber-400 pl-2">🔄 指名攻撃のルール</h4>
+                    <ul class="list-disc pl-5 space-y-1 text-stone-300">
+                        <li><strong>成功した場合</strong>：攻撃したプレイヤーが<strong class="text-amber-400">【1得点】</strong>を獲得！ ターゲットは1失点となり犬を置き直します。</li>
+                        <li><strong>失敗した場合</strong>：攻撃したプレイヤーが<strong class="text-rose-400">【1失点（ダメージ）】</strong>を受けます！</li>
+                    </ul>
                 </div>
             </div>
 
@@ -505,7 +497,7 @@
 
     <!-- GAME ENGINE & PEERJS SCRIPT -->
     <script>
-        const PREFIX = "dokojong-online-app-v8-";
+        const PREFIX = "dokojong-online-app-v9-";
 
         let peer = null, myId = "", myName = "", roomCode = "";
         let isHost = false;
@@ -1239,7 +1231,7 @@
                 if (!roomData.proposedDoors.includes(addedDoor)) {
                     roomData.proposedDoors.push(addedDoor);
                 }
-                roomData.leaderId = actorId; // 追加した人が新しい親
+                roomData.leaderId = actorId;
                 roomData.agreedPlayers = [actorId];
 
                 addLog(`${actor.name} が【部屋 ${addedDoor}】を追加提案！ 新しい親になりました。`);
@@ -1249,7 +1241,7 @@
             } else if (actionType === 'RESET_DOORS') {
                 const newDoors = payload;
                 roomData.proposedDoors = newDoors;
-                roomData.leaderId = actorId; // 違うドアを開けた人が新しい親
+                roomData.leaderId = actorId;
                 roomData.agreedPlayers = [actorId];
 
                 addLog(`${actor.name} が違うドアを開け直しました！【部屋 ${newDoors.join(', ')}】を新たに提案！`);
@@ -1264,30 +1256,39 @@
                 addLog(`🎯 ${actor.name} が ${target.name} の【部屋 ${guessedRoom}】を指名攻撃！`);
 
                 if (target.dogRoom === guessedRoom) {
-                    playSound('dog_found');
+                    // 【指名攻撃成功】攻撃側が得点獲得、ターゲットが失点
+                    playSound('victory');
+                    actor.score += 1;
                     target.penalty += 1;
-                    addLog(`💥 当たり！ ${target.name} の犬を発見！ ${target.name} は1失点！`);
+                    addLog(`✨ 指名攻撃成功！ ${actor.name} が 1得点を獲得！ ${target.name} は 1失点！`);
 
-                    const nonDogUnrevealed = [1, 2, 3, 4, 5].filter(r => r !== actor.dogRoom && !actor.revealedTiles.includes(r));
-                    if (nonDogUnrevealed.length > 0) {
-                        actor.revealedTiles.push(nonDogUnrevealed[0]);
-                        addLog(`✨ ${actor.name} は自分の部屋 ${nonDogUnrevealed[0]} の×タイルを公開！`);
+                    showResultModal(
+                        "🎉", 
+                        "指名攻撃大成功！！", 
+                        `<div><strong class="text-amber-400">${actor.name}</strong> の見事な直撃指定！</div>
+                         <div><strong class="text-rose-400">${target.name}</strong> の犬(部屋${guessedRoom})を発見しました！</div>
+                         <div class="text-xs text-amber-300 pt-2 font-black">【結果】 ${actor.name} が 1得点 獲得！ (${target.name} は 1失点)</div>`
+                    );
+
+                    checkGameVictoryConditions();
+                    if (roomData.status !== 'GAMEOVER') {
+                        checkPenaltyOrRoundReset(target.id, true);
                     }
+
+                } else {
+                    // 【指名攻撃失敗】攻撃側が1失点（ダメージ）
+                    playSound('dog_found');
+                    actor.penalty += 1;
+                    addLog(`❌ 指名攻撃失敗！ ${actor.name} の攻撃は外れ、${actor.name} が 1失点を受けました！`);
 
                     showResultModal(
                         "💥", 
-                        "指名攻撃大成功！", 
-                        `<div><strong class="text-amber-400">${actor.name}</strong> の見事な直撃指定！</div>
-                         <div><strong class="text-rose-400">${target.name}</strong> の犬(部屋${guessedRoom})を発見しました！</div>
-                         <div class="text-xs text-rose-300 pt-2 font-black">【結果】 ${target.name} は 1失点！</div>`
+                        "指名攻撃失敗！", 
+                        `<div>${actor.name} の攻撃は外れました！</div>
+                         <div class="text-xs text-rose-300 pt-2 font-black">【結果】 外したペナルティとして ${actor.name} が 1失点 受けます！</div>`
                     );
 
-                    checkPenaltyOrRoundReset(target.id, true);
-
-                } else {
-                    addLog(`❌ 外れ！ ${target.name} の部屋 ${guessedRoom} に犬はいませんでした。`);
-                    showNotice("❌", "指名攻撃失敗", `${actor.name} の攻撃は外れ！\n${target.name} の部屋 ${guessedRoom} に犬はいませんでした。`, 2500);
-                    nextTurn();
+                    checkPenaltyOrRoundReset(actor.id, false);
                 }
             }
 
@@ -1298,7 +1299,6 @@
             const doors = roomData.proposedDoors;
             let dogFoundPlayerIds = [];
 
-            // 全員の盤面をチェックし、提案されたドアの中に自分の犬が含まれていた人を全員特定する
             Object.values(roomData.players).forEach(p => {
                 if (!p.isAlive) return;
 
@@ -1330,7 +1330,6 @@
                      <div class="text-xs text-rose-300 pt-2 font-black">【結果】 該当者は 1失点となり、犬の隠し場所を選び直します！</div>`
                 );
 
-                // 発失点したプレイヤー全員についてペナルティ処理（犬の置き直し）を実行
                 checkMultiplePenaltiesOrRoundReset(dogFoundPlayerIds);
 
             } else {
@@ -1406,7 +1405,6 @@
             }
         }
 
-        // 複数人が同時に失点した場合の処理（同意捜索用）
         function checkMultiplePenaltiesOrRoundReset(penaltyPlayerIds) {
             let needsRePlaceMe = false;
 
